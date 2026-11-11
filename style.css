@@ -1,0 +1,61 @@
+/* fumadocs-feynman theme: particle hues of the EPP primer */
+
+:root {
+  --feyn-electron: #2350c8;
+  --feyn-phonon: #c26a00;
+  --feyn-photon: #b5306c;
+  --feyn-c4: #0b8aa3;
+  --feyn-c5: #6d45c4;
+  --feyn-electron-text: #2350c8;
+  --feyn-phonon-text: #92500a;
+  --feyn-photon-text: #a1295f;
+  --feyn-c4-text: #076a80;
+  --feyn-c5-text: #5a37a8;
+  --feyn-ink: var(--color-fd-foreground, #151b29);
+  --feyn-muted: var(--color-fd-muted-foreground, #5a6477);
+  --feyn-surface: var(--color-fd-background, #ffffff);
+  --feyn-font-math: "KaTeX_Math", "Source Serif 4", "STIX Two Text", Cambria, Georgia, "Times New Roman", serif;
+  --feyn-font-text: "KaTeX_Main", "Source Serif 4", "STIX Two Text", Cambria, Georgia, "Times New Roman", serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    --feyn-electron: #6688f2;
+    --feyn-phonon: #c67c18;
+    --feyn-photon: #d95e94;
+    --feyn-c4: #169fb6;
+    --feyn-c5: #9372ee;
+    --feyn-electron-text: #93adff;
+    --feyn-phonon-text: #f0aa4f;
+    --feyn-photon-text: #f286b5;
+    --feyn-c4-text: #5cc8dc;
+    --feyn-c5-text: #b9a2ff;
+    --feyn-ink: var(--color-fd-foreground, #e3e8f1);
+    --feyn-muted: var(--color-fd-muted-foreground, #96a0b3);
+    --feyn-surface: var(--color-fd-background, #141a26);
+  }
+}
+
+.dark, [data-theme="dark"] {
+  --feyn-electron: #6688f2;
+  --feyn-phonon: #c67c18;
+  --feyn-photon: #d95e94;
+  --feyn-c4: #169fb6;
+  --feyn-c5: #9372ee;
+  --feyn-electron-text: #93adff;
+  --feyn-phonon-text: #f0aa4f;
+  --feyn-photon-text: #f286b5;
+  --feyn-c4-text: #5cc8dc;
+  --feyn-c5-text: #b9a2ff;
+  --feyn-ink: var(--color-fd-foreground, #e3e8f1);
+  --feyn-muted: var(--color-fd-muted-foreground, #96a0b3);
+  --feyn-surface: var(--color-fd-background, #141a26);
+}
+
+.feyn { margin: 1.25rem 0; }
+
+.feyn svg { max-width: 100%; height: auto; overflow: visible; }
+
+.feyn figcaption, .feyn .feyn-cap { font-size: 0.85em; color: var(--feyn-muted); text-align: center; margin-top: 0.4rem; }
+
+.feyn-error { border: 1px solid #c2410c; border-radius: 6px; padding: 0.6rem 0.8rem; font: 0.8rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; color: #c2410c; overflow-x: auto; }

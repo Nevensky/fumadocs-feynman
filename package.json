@@ -1,0 +1,25 @@
+{
+  "name": "fumadocs-feynman",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Feynman diagrams for fumadocs: ```feynman code blocks rendered to static, theme-aware SVG at build time",
+  "type": "module",
+  "sideEffects": ["*.css"],
+  "files": ["src", "react", "remark", "types", "style.css", "README.md"],
+  "exports": {
+    ".": { "types": "./types/index.d.ts", "default": "./src/index.js" },
+    "./react": { "types": "./types/react.d.ts", "default": "./react/index.js" },
+    "./remark": { "types": "./types/remark.d.ts", "default": "./remark/index.js" },
+    "./style.css": "./style.css"
+  },
+  "scripts": {
+    "test": "node test/run.mjs",
+    "build:css": "node scripts/build-css.mjs",
+    "gallery": "node gallery/build.mjs",
+    "shots": "node test/shots.mjs",
+    "demo:pack": "npm pack --pack-destination demo"
+  },
+  "peerDependencies": { "react": ">=18" },
+  "peerDependenciesMeta": { "react": { "optional": true } },
+  "engines": { "node": ">=18" }
+}

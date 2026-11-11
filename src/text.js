@@ -1,0 +1,209 @@
+// Labels: a small TeX-like subset typeset as SVG <tspan>s, with no DOM needed (so it runs at build time).
+//   G_0  G^{cn}  \Sigma^{ep}  \chi^{irr}  W^{e,\mathrm{cn}}  \bar{v}  \Gamma_{\overline{ph}}  k+q  G'
+// Conventions (those of the EPP primer): Latin letters italic, capital Greek upright, lower-case Greek
+// italic, digits and symbols upright. Sub- and superscripts are names (cn, ep, irr, RPA), so their Latin
+// letters are upright; \mathit{} forces italic, \mathrm{} / \text{} force upright.
+
+const GREEK = {
+  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ϵ', varepsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ',
+  vartheta: 'ϑ', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', varpi: 'ϖ', rho: 'ρ',
+  varrho: 'ϱ', sigma: 'σ', varsigma: 'ς', tau: 'τ', upsilon: 'υ', phi: 'ϕ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
+  Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω'
+};
+const SYMBOL = {
+  dagger: '†', ddagger: '‡', prime: '′', infty: '∞', pm: '±', mp: '∓', times: '×', cdot: '·', partial: '∂', nabla: '∇',
+  ell: 'ℓ', hbar: 'ℏ', to: '→', rightarrow: '→', leftarrow: '←', leftrightarrow: '↔', uparrow: '↑', downarrow: '↓',
+  sim: '∼', approx: '≈', equiv: '≡', neq: '≠', ne: '≠', le: '≤', leq: '≤', ge: '≥', geq: '≥', star: '⋆', ast: '∗',
+  circ: '∘', bullet: '•', cdots: '⋯', ldots: '…', dots: '…', perp: '⊥', parallel: '∥', otimes: '⊗', oplus: '⊕',
+  langle: '⟨', rangle: '⟩', minus: '−', uparrow2: '⇑',
+  ',': ' ', ';': ' ', ':': ' ', '!': '', ' ': ' ', '{': '{', '}': '}', '_': '_', '^': '^', '%': '%',
+  '#': '#', '&': '&', '\\': '\\', '|': '‖'
+};
+const ACCENT = { bar: '̄', overline: '̅', tilde: '̃', widetilde: '̃', hat: '̂', widehat: '̂', dot: '̇', ddot: '̈', vec: '⃗', check: '̌', breve: '̆' };
+const FONT = { mathrm: 'rm', text: 'rm', textrm: 'rm', operatorname: 'rm', mathsf: 'rm', mathit: 'it', textit: 'it', mathbf: 'bf', textbf: 'bf', boldsymbol: 'bi', bm: 'bi' };
+
+const LOWER_GREEK = /[α-ωϵϑϖϱςϕ]/;
+
+/** Parse a label into runs { t, s (-1 sub | 0 | 1 sup), it (italic), bf (bold) }. */
+export function parseLabel(src, opts = {}) {
+  const s = String(src ?? '');
+  const n = s.length;
+  let i = 0;
+
+  const styleOf = (ch, ctx) => {
+    const bf = ctx.font === 'bf' || ctx.font === 'bi';
+    let it;
+    if (ctx.font === 'rm' || ctx.font === 'bf') it = false;
+    else if (ctx.font === 'it' || ctx.font === 'bi') it = true;
+    else if (/[A-Za-z]/.test(ch)) it = ctx.s === 0 || !!opts.scriptItalic;
+    else it = LOWER_GREEK.test(ch);
+    return { it, bf };
+  };
+  const emit = (out, ch, ctx) => {
+    const st = styleOf(ch, ctx);
+    const last = out[out.length - 1];
+    if (last && last.s === ctx.s && last.it === st.it && last.bf === st.bf && !last.over) last.t += ch;
+    else out.push({ t: ch, s: ctx.s, it: st.it, bf: st.bf });
+  };
+  // a binary operator between two operands gets TeX's medium space on both sides (k + q); a sign does not (−q)
+  const BINOP = /[+−=×±∓·<>≤≥≈≡]/;
+  const OPERAND_END = /[\p{L}\p{N}\p{M})\]′]$/u;
+  const emitChar = (out, ch, ctx) => {
+    if (!ctx.text) { if (ch === '-') ch = '−'; else if (ch === "'") ch = '′'; else if (ch === '*') ch = '∗'; }
+    const last = out[out.length - 1];
+    if (!ctx.text && ctx.s === 0 && BINOP.test(ch) && last && last.s === 0 && OPERAND_END.test(last.t)) {
+      const sp = { ...ctx, font: 'rm' };
+      emit(out, '\u205F', sp); emit(out, ch, ctx); emit(out, '\u205F', sp);
+      return;
+    }
+    emit(out, ch, ctx);
+  };
+
+  function readArg(out, ctx) {
+    while (i < n && s[i] === ' ') i++;
+    if (i >= n) return;
+    if (s[i] === '{') { i++; parseUntil(out, '}', ctx); i++; }
+    else if (s[i] === '\\') parseMacro(out, ctx);
+    else emitChar(out, s[i++], ctx);
+  }
+  function parseUntil(out, close, ctx) {
+    while (i < n && s[i] !== close) parseOne(out, ctx);
+  }
+  function parseOne(out, ctx) {
+    const ch = s[i];
+    if (ch === '\\') parseMacro(out, ctx);
+    else if (ch === '_' || ch === '^') { i++; readArg(out, { ...ctx, s: ch === '_' ? -1 : 1 }); }
+    else if (ch === '{') { i++; parseUntil(out, '}', ctx); i++; }
+    else { i++; emitChar(out, ch, ctx); }
+  }
+  function parseMacro(out, ctx) {
+    i++;
+    let name;
+    const m = /^[A-Za-z]+/.exec(s.slice(i));
+    if (m) { name = m[0]; i += name.length; } else { name = s[i] ?? ''; i++; }
+    if (FONT[name]) { readArg(out, { ...ctx, font: FONT[name], text: name.startsWith('text') || name === 'operatorname' }); return; }
+    if (ACCENT[name]) {
+      const tmp = [];
+      readArg(tmp, ctx);
+      const total = tmp.reduce((k, r) => k + [...r.t].length, 0);
+      if (name === 'overline' || (name === 'bar' && total > 1)) {
+        // one continuous bar over the whole argument (\overline{ph}), not a mark per letter
+        for (const r of tmp) { r.over = true; out.push(r); }
+        return;
+      }
+      // a one-letter argument gets a combining accent on its letter
+      for (const r of tmp) r.t = [...r.t].map((c, k) => (total > 1 || k === [...r.t].length - 1 ? c + ACCENT[name] : c)).join('');
+      for (const r of tmp) { const last = out[out.length - 1]; if (last && last.s === r.s && last.it === r.it && last.bf === r.bf && !last.over) last.t += r.t; else out.push(r); }
+      return;
+    }
+    if (GREEK[name]) { emit(out, GREEK[name], ctx); return; }
+    if (SYMBOL[name] !== undefined) { for (const c of SYMBOL[name]) emit(out, c, { ...ctx, font: ctx.font === 'bf' || ctx.font === 'bi' ? 'bf' : 'rm' }); return; }
+    for (const c of '\\' + name) emit(out, c, { ...ctx, font: 'rm' });
+  }
+
+  const out = [];
+  const ctx = { s: 0, font: opts.text ? 'rm' : null, text: !!opts.text };
+  while (i < n) {
+    if (s[i] === '}') { i++; continue; } // stray brace
+    parseOne(out, ctx);
+  }
+  return out;
+}
+
+// ---------- metrics (no DOM): advance widths in em, good to a few per cent for serif faces ----------
+function advance(ch) {
+  if (/\p{M}/u.test(ch)) return 0;
+  if (ch === ' ') return 0.26;
+  if (ch === '\u205F') return 0.22;
+  if (ch === ' ') return 0.17;
+  if (ch === ' ') return 0.25;
+  if (/[A-Z]/.test(ch)) return /[MW]/.test(ch) ? 0.85 : 0.66;
+  if (/[a-z]/.test(ch)) return /[mw]/.test(ch) ? 0.75 : /[ijlrtf]/.test(ch) ? 0.33 : 0.5;
+  if (/[0-9]/.test(ch)) return 0.5;
+  if (/[Α-Ω]/.test(ch)) return 0.68;
+  if (/[α-ωϵϑϖϱςϕ]/.test(ch)) return 0.56;
+  if (/[.,:;′'!|]/.test(ch)) return 0.28;
+  if (/[()[\]{}]/.test(ch)) return 0.34;
+  if (/[+−=×<>≤≥≈≡∼→←↔⊗⊕]/.test(ch)) return 0.66;
+  return 0.6;
+}
+
+export const SCRIPT = 0.72;
+const SUB = 0.27, SUP = 0.4;
+// TeX's italic correction: a superscript after an italic letter moves right, more after F, P, T, V, W, Y
+const italicCorrection = (prev, r) => (r.s === 1 && prev && prev.s === 0 && prev.it ? (/[FPTVWY]$/.test(prev.t) ? 0.12 : 0.08) : 0);
+
+// which glyphs reach the cap height (or above) and which go below the baseline
+const TALL = /[A-Z0-9bdfhkltΑ-Ωβδζθλξϑħℏ∂()[\]{}′]/;
+const DEEP = /[gjpqyβγζημξρφχψς()[\]{},;]/;
+
+/**
+ * Width and vertical extent (relative to the baseline, + downwards) of a label at font size `size`. The extent
+ * follows the glyphs: x-height or cap height on top, descenders only when there are some. A label above a line
+ * and one below it then sit at the same visible distance from it.
+ */
+export function measureRuns(runs, size) {
+  let w = 0, top = -0.47 * size, bottom = 0;
+  runs.forEach((r, k) => {
+    const fs = r.s ? size * SCRIPT : size;
+    w += italicCorrection(runs[k - 1], r) * size;
+    for (const ch of r.t) w += advance(ch) * fs * (r.bf ? 1.06 : 1);
+    const base = r.s === 1 ? -SUP * size : r.s === -1 ? SUB * size : 0;
+    const visible = r.t.replace(/[\s   ]/g, '');
+    if (!visible) return;
+    const up = (TALL.test(visible) || r.bf ? 0.7 : 0.47) * fs, down = DEEP.test(visible) ? 0.22 * fs : 0.02 * fs;
+    top = Math.min(top, base - up);
+    bottom = Math.max(bottom, base + down);
+    if (/\p{M}/u.test(r.t)) top = Math.min(top, base - 0.92 * fs);
+    if (r.over) top = Math.min(top, base - 0.95 * fs);
+  });
+  return { w, top, bottom };
+}
+
+const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const num = (v) => String(Math.round(v * 100) / 100);
+
+/**
+ * <text> element for a label. (x, y) is the baseline anchor; anchor: start | middle | end.
+ * Italic runs use --feyn-font-math with no fallback, so without the stylesheet they inherit the
+ * root font and stay italic through font-style.
+ */
+export function labelSVG(runs, x, y, { size = 14, anchor = 'middle', color, cls = 'feyn-lab', weight } = {}) {
+  let shift = 0;
+  const parts = runs.map((r, k) => {
+    const target = r.s === -1 ? SUB * size : r.s === 1 ? -SUP * size : 0;
+    const dy = target - shift; shift = target;
+    const a = [];
+    const dx = italicCorrection(runs[k - 1], r) * size;
+    if (dx) a.push(`dx="${num(dx)}"`);
+    if (dy) a.push(`dy="${num(dy)}"`);
+    if (r.over) a.push('text-decoration="overline"');
+    if (r.s) a.push(`font-size="${num(size * SCRIPT)}"`);
+    a.push(`font-style="${r.it ? 'italic' : 'normal'}"`);
+    if (r.bf) a.push('font-weight="700"');
+    if (r.it) a.push('style="font-family:var(--feyn-font-math)"');
+    return `<tspan ${a.join(' ')}>${esc(r.t)}</tspan>`;
+  });
+  const attrs = [`x="${num(x)}"`, `y="${num(y)}"`, `font-size="${num(size)}"`];
+  if (anchor !== 'start') attrs.push(`text-anchor="${anchor}"`);
+  if (weight) attrs.push(`font-weight="${weight}"`);
+  return `<text class="${cls}" ${attrs.join(' ')} style="fill:${color}">${parts.join('')}</text>`;
+}
+
+/** Plain-text form of a label, for aria descriptions. */
+export function labelText(src) {
+  return parseLabel(src).map((r) => (r.s === -1 ? ' sub ' : r.s === 1 ? ' sup ' : '') + r.t.replace(/\p{M}/gu, ' bar') + (r.over ? ' bar ' : '')).join('').replace(/\s+/g, ' ').trim();
+}
+
+export const escapeXML = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** HTML for a label (captions): <i>, <sub>, <sup>. */
+export function labelHTML(src, opts) {
+  return parseLabel(src, opts).map((r) => {
+    let h = r.t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (r.it) h = `<i>${h}</i>`;
+    if (r.bf) h = `<b>${h}</b>`;
+    if (r.over) h = `<span style="text-decoration:overline">${h}</span>`;
+    return r.s === -1 ? `<sub>${h}</sub>` : r.s === 1 ? `<sup>${h}</sup>` : h;
+  }).join('');
+}

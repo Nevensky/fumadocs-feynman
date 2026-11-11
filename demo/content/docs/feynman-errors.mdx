@@ -1,0 +1,14 @@
+---
+title: Diagram errors
+description: What a mistake in a feynman code block looks like.
+---
+
+This block refers to a vertex that does not exist and misspells a template option. The build prints a
+warning that points at the line in this file, and the page shows the errors with line numbers instead
+of a diagram. With `remarkFeynman({ strict: true })` the build fails instead.
+
+```feynman
+a at 0,0; b at 2,0
+a -> c fermion "G"
+ladder n=3 rungs=W
+```

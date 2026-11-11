@@ -1,0 +1,562 @@
+---
+title: Feynman diagrams
+description: "Feynman code blocks, rendered to static SVG at build time by fumadocs-feynman."
+---
+
+Write a diagram in a code block whose language is `feynman`, the way fumadocs uses `mermaid` blocks. The remark plugin turns the
+block into `<Feynman chart="..." />`, a server component that emits static SVG: no client JavaScript, and the
+colours follow the light/dark theme through CSS variables.
+
+## Vocabulary
+
+### Line styles
+
+Built-in styles. `dressed` turns each into its "2" form: double for fermions and the Coulomb line, heavy for the others.
+
+````md
+```feynman
+(0,0) -> (2.2,0) fermion "fermion"
+(3.2,0) -> (5.4,0) fermion2 "fermion2"
+(0,-1) -- (2.2,-1) phonon "phonon"
+(3.2,-1) -- (5.4,-1) phonon2 "phonon2"
+(0,-2) -- (2.2,-2) photon "photon"
+(3.2,-2) -- (5.4,-2) photon2 "photon2"
+(0,-3) -- (2.2,-3) coulomb "coulomb"
+(3.2,-3) -- (5.4,-3) screened "screened"
+(0,-4) -- (2.2,-4) field "field"
+(3.2,-4) -- (5.4,-4) gluon "gluon"
+(0,-5) -- (2.2,-5) scalar "scalar"
+(3.2,-5) -> (5.4,-5) ghost "ghost"
+```
+````
+
+```feynman
+(0,0) -> (2.2,0) fermion "fermion"
+(3.2,0) -> (5.4,0) fermion2 "fermion2"
+(0,-1) -- (2.2,-1) phonon "phonon"
+(3.2,-1) -- (5.4,-1) phonon2 "phonon2"
+(0,-2) -- (2.2,-2) photon "photon"
+(3.2,-2) -- (5.4,-2) photon2 "photon2"
+(0,-3) -- (2.2,-3) coulomb "coulomb"
+(3.2,-3) -- (5.4,-3) screened "screened"
+(0,-4) -- (2.2,-4) field "field"
+(3.2,-4) -- (5.4,-4) gluon "gluon"
+(0,-5) -- (2.2,-5) scalar "scalar"
+(3.2,-5) -> (5.4,-5) ghost "ghost"
+```
+
+### Vertex shapes
+
+Lines stop at the edge of disks, blobs and boxes on their own.
+
+````md
+```feynman
+a at (0, 0) dot "dot"
+b at (1.1, 0) current "current"
+c at (2.2, 0) disk "disk"
+d at (3.3, 0) hatched "hatched"
+e at (4.4, 0) open "open"
+f at (5.5, 0) cross "cross"
+g at (0.4, -1.5) blob label="\Sigma"
+h at (2, -1.5) bubble label="\chi"
+i at (3.6, -1.5) box label="\Gamma"
+j at (5.2, -1.5) triangle label="\Lambda" dir=left
+```
+````
+
+```feynman
+a at (0, 0) dot "dot"
+b at (1.1, 0) current "current"
+c at (2.2, 0) disk "disk"
+d at (3.3, 0) hatched "hatched"
+e at (4.4, 0) open "open"
+f at (5.5, 0) cross "cross"
+g at (0.4, -1.5) blob label="\Sigma"
+h at (2, -1.5) bubble label="\chi"
+i at (3.6, -1.5) box label="\Gamma"
+j at (5.2, -1.5) triangle label="\Lambda" dir=left
+```
+
+### Drafting grid
+
+A line that says grid draws the unit grid and the name of every vertex. Positions are (x, y) in units of 40 px, y up; the main line sits on y = 0, where an equation sets = and +. Delete the line when the diagram is done.
+
+````md
+```feynman
+grid
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+````
+
+```feynman
+grid
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+
+## Self-energies
+
+### Fan–Migdal, written by hand
+
+The EPP-primer look: the electron enters on the right, screened vertices are grey disks. below and above name sides of the page, whatever order the ends are written in; bulge=1.2 is the height of the arc in units.
+
+````md
+```feynman
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+````
+
+```feynman
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+
+### Debye–Waller, written by hand
+
+On a loop, above and below say where it goes; size= is its diameter in units.
+
+````md
+```feynman
+v at (0, 0) hatched "g^{DW}" pos=below
+leg v left 0.7; leg v right 0.7
+v -- v phonon dressed loop above size=1.2 "F"
+```
+````
+
+```feynman
+v at (0, 0) hatched "g^{DW}" pos=below
+leg v left 0.7; leg v right 0.7
+v -- v phonon dressed loop above size=1.2 "F"
+```
+
+### Rainbow, written by hand
+
+A chain draws three electron lines at once; the outer phonon rises 1.4 units, the inner one is a half circle.
+
+````md
+```feynman
+v0 at (0, 0); v1 at (1.15, 0); v2 at (2.3, 0); v3 at (3.45, 0)
+leg v0 left 0.55; leg v3 right 0.55
+v0 -> v1 -> v2 -> v3 fermion
+v0 -- v3 phonon bulge=1.4 above
+v1 -- v2 phonon arc above
+```
+````
+
+```feynman
+v0 at (0, 0); v1 at (1.15, 0); v2 at (2.3, 0); v3 at (3.45, 0)
+leg v0 left 0.55; leg v3 right 0.55
+v0 -> v1 -> v2 -> v3 fermion
+v0 -- v3 phonon bulge=1.4 above
+v1 -- v2 phonon arc above
+```
+
+### Σ^ep = Fan–Migdal + Debye–Waller
+
+Templates are terms of an equation: a line that starts with = or + begins the next term.
+
+````md
+```feynman
+sigma label="\Sigma^{ep}"
+= fan-migdal dressed vertex=disk
++ debye-waller dressed
+```
+````
+
+```feynman
+sigma label="\Sigma^{ep}"
+= fan-migdal dressed vertex=disk
++ debye-waller dressed
+```
+
+### Hartree, Fock and GW
+
+A line that starts with | sets the next diagram beside the last, with no operator.
+
+````md
+```feynman
+hartree
+caption "Hartree"
+| fock
+caption "Fock"
+| gw
+caption "GW"
+```
+````
+
+```feynman
+hartree
+caption "Hartree"
+| fock
+caption "Fock"
+| gw
+caption "GW"
+```
+
+### Second order: rainbow and crossed
+
+Migdal’s theorem: the crossed diagram is smaller by a factor √(m/M).
+
+````md
+```feynman
+sigma2 rainbow
+caption "rainbow (non-crossing)"
+| sigma2 crossed
+caption "crossed (vertex correction)"
+```
+````
+
+```feynman
+sigma2 rainbow
+caption "rainbow (non-crossing)"
+| sigma2 crossed
+caption "crossed (vertex correction)"
+```
+
+## Dyson equations
+
+### Electron
+
+````md
+```feynman
+dyson
+```
+````
+
+```feynman
+dyson
+```
+
+### Phonon (EPP notation)
+
+````md
+```feynman
+dyson style=phonon full=F bare="F^0" self="\Pi^{ph}"
+```
+````
+
+```feynman
+dyson style=phonon full=F bare="F^0" self="\Pi^{ph}"
+```
+
+### Photon: polaritons
+
+````md
+```feynman
+dyson style=photon full=D bare="D^0" self="\Pi" color=electron
+```
+````
+
+```feynman
+dyson style=photon full=D bare="D^0" self="\Pi" color=electron
+```
+
+### Screening: W as an RPA series
+
+````md
+```feynman
+propagator style=coulomb dressed label=W
+= propagator style=coulomb label=v
++ rpa n=1 extLabel=v
++ rpa n=2 extLabel=v
++ ...
+```
+````
+
+```feynman
+propagator style=coulomb dressed label=W
+= propagator style=coulomb label=v
++ rpa n=1 extLabel=v
++ rpa n=2 extLabel=v
++ ...
+```
+
+## Bubbles and excitons
+
+### Phonon self-energy (bare and screened vertex)
+
+````md
+```feynman
+bubble ext=phonon left=dot right=disk dressed top=G bottom=G
+```
+````
+
+```feynman
+bubble ext=phonon left=dot right=disk dressed top=G bottom=G
+```
+
+### Exciton: current vertices, photon propagator D
+
+A bubble with a ladder of screened interactions inside; teal dots are current vertices.
+
+````md
+```feynman
+exciton n=3
+```
+````
+
+```feynman
+exciton n=3
+```
+
+### Exciton: charge vertices, screened Coulomb
+
+````md
+```feynman
+exciton n=3 charge extLabel="W^T"
+```
+````
+
+```feynman
+exciton n=3 charge extLabel="W^T"
+```
+
+### RPA chain of ladder bubbles (exchange v̄)
+
+````md
+```feynman
+exciton charge n=2 bubbles=2 link=coulomb linkLabel="\bar{v}" ext=coulomb extLabel=v
+```
+````
+
+```feynman
+exciton charge n=2 bubbles=2 link=coulomb linkLabel="\bar{v}" ext=coulomb extLabel=v
+```
+
+### Plain RPA chain
+
+````md
+```feynman
+rpa n=3
+```
+````
+
+```feynman
+rpa n=3
+```
+
+## Two-particle
+
+### Particle–hole ladder
+
+````md
+```feynman
+ladder n=4 top=G bottom=G
+```
+````
+
+```feynman
+ladder n=4 top=G bottom=G
+```
+
+### Particle–particle ladder with phonons
+
+````md
+```feynman
+ladder n=3 pp rung=phonon rungLabel=F
+```
+````
+
+```feynman
+ladder n=3 pp rung=phonon rungLabel=F
+```
+
+### Maximally crossed (Cooperon)
+
+````md
+```feynman
+crossed n=4
+```
+````
+
+```feynman
+crossed n=4
+```
+
+### Vertex corrections
+
+````md
+```feynman
+vertex-correction ext=photon rung=phonon rungLabel=F
+| vertex-correction ext=coulomb rung=screened rungLabel=W
+```
+````
+
+```feynman
+vertex-correction ext=photon rung=phonon rungLabel=F
+| vertex-correction ext=coulomb rung=screened rungLabel=W
+```
+
+### Bethe–Salpeter equation
+
+````md
+```feynman
+bse
+```
+````
+
+```feynman
+bse
+```
+
+### T-matrix
+
+````md
+```feynman
+tmatrix
+```
+````
+
+```feynman
+tmatrix
+```
+
+### Parquet decomposition
+
+````md
+```feynman
+parquet
+```
+````
+
+```feynman
+parquet
+```
+
+## Written by hand
+
+### Hedin–Baym: W = Wᵉ + Wᵉ χⁱᵒⁿ Wᵉ
+
+````md
+```feynman
+(0, 0) -- (1.8, 0) screened "W" above
+= (0, 0) -- (1.8, 0) screened "W^{e}" above
++ p3 at (1.5, 0); p4 at (3.3, 0)
+  (0, 0) -- p3 screened "W^{e}" above
+  p3 -- p4 phonon dressed "\chi^{ion}" above
+  p4 -- (4.8, 0) screened "W^{e}" above
+```
+````
+
+```feynman
+(0, 0) -- (1.8, 0) screened "W" above
+= (0, 0) -- (1.8, 0) screened "W^{e}" above
++ p3 at (1.5, 0); p4 at (3.3, 0)
+  (0, 0) -- p3 screened "W^{e}" above
+  p3 -- p4 phonon dressed "\chi^{ion}" above
+  p4 -- (4.8, 0) screened "W^{e}" above
+```
+
+### Electron–phonon vertex with crystal momenta
+
+A vertical line has no above or below: side=right counts along the written direction, here upwards, so it is the page’s right.
+
+````md
+```feynman
+v at (0, 0)
+(-1.5, 0) -> v fermion "n\mathbf{k}" above
+v -> (1.5, 0) fermion "m\,\mathbf{k}+\mathbf{q}" above
+(0, -1.3) -- v phonon "\mathbf{q}\nu" side=right mom="\mathbf{q}"
+```
+````
+
+```feynman
+v at (0, 0)
+(-1.5, 0) -> v fermion "n\mathbf{k}" above
+v -> (1.5, 0) fermion "m\,\mathbf{k}+\mathbf{q}" above
+(0, -1.3) -- v phonon "\mathbf{q}\nu" side=right mom="\mathbf{q}"
+```
+
+### Phonon-assisted absorption
+
+````md
+```feynman
+a at (0, 0); b at (1.6, 0)
+leg a left 1 fermion in "n\mathbf{k}" below
+a -> b fermion "n'\mathbf{k}" below
+leg b right 1 fermion out "m\,\mathbf{k}+\mathbf{q}" below
+(-0.7, 1.1) -- a photon "\hbar\omega"
+b -- (2.3, 1.1) phonon "\mathbf{q}\nu"
+```
+````
+
+```feynman
+a at (0, 0); b at (1.6, 0)
+leg a left 1 fermion in "n\mathbf{k}" below
+a -> b fermion "n'\mathbf{k}" below
+leg b right 1 fermion out "m\,\mathbf{k}+\mathbf{q}" below
+(-0.7, 1.1) -- a photon "\hbar\omega"
+b -- (2.3, 1.1) phonon "\mathbf{q}\nu"
+```
+
+### Other fields: e⁺e⁻ → μ⁺μ⁻ and a gluon
+
+````md
+```feynman
+a at (0, 0); b at (2, 0)
+(-1, 0.9) -> a fermion "e^-" above
+a -> (-1, -0.9) fermion "e^+" below
+a -- b photon "\gamma" above
+b -> (3, 0.9) fermion "\mu^-" above
+(3, -0.9) -> b fermion "\mu^+" below
+| (0, 0) -- (2, 0) gluon "g" above
+```
+````
+
+```feynman
+a at (0, 0); b at (2, 0)
+(-1, 0.9) -> a fermion "e^-" above
+a -> (-1, -0.9) fermion "e^+" below
+a -- b photon "\gamma" above
+b -> (3, 0.9) fermion "\mu^-" above
+(3, -0.9) -> b fermion "\mu^+" below
+| (0, 0) -- (2, 0) gluon "g" above
+```
+
+### Your own notation
+
+style names how a line looks, once; the remark plugin also takes styles for the whole site. Where a line goes stays on the line.
+
+````md
+```feynman
+style D = photon
+style F = phonon dressed
+a at (0, 0) current; b at (2.4, 0) current
+leg a left D; leg b right D
+a -> b fermion dressed bulge=1.1 above "G"
+b -> a fermion dressed bulge=1.1 below "G"
+a -- b F "F"
+```
+````
+
+```feynman
+style D = photon
+style F = phonon dressed
+a at (0, 0) current; b at (2.4, 0) current
+leg a left D; leg b right D
+a -> b fermion dressed bulge=1.1 above "G"
+b -> a fermion dressed bulge=1.1 below "G"
+a -- b F "F"
+```
+
+## Fence options and the component
+
+A caption from the fence meta:
+
+```feynman caption="The Fan–Migdal self-energy, with screened vertices"
+fan-migdal dressed vertex=disk
+```
+
+The component can also be used directly:
+
+<Feynman chart="ladder n=2 pp rung=photon rungLabel=D" caption="Photon exchange in the particle–particle channel" />

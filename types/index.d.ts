@@ -1,0 +1,137 @@
+export interface RenderOptions {
+  /** px per diagram unit (default 40). Strokes and labels keep their size. */
+  unit?: number;
+  /** Your own line-style names, e.g. { D: 'photon', F: 'phonon dressed' }. */
+  styles?: Record<string, string>;
+  caption?: string;
+  /** Accessible description; defaults to one generated from the diagram. */
+  title?: string;
+  /** Prefix for SVG ids (hatch patterns); defaults to a hash of the source. */
+  id?: string;
+  /** Italic Latin letters in sub- and superscripts (default: upright, as names like cn, ep, irr). */
+  scriptItalic?: boolean;
+  /** Draw the drafting grid (whole units and vertex names), as the `grid` statement does. */
+  grid?: boolean;
+}
+
+export interface DiagramError {
+  message: string;
+  /** 1-based line in the block. */
+  line?: number;
+}
+
+export interface RenderResult {
+  /** A <figure>; equations wrap responsively. With errors: an error box listing them. */
+  html: string;
+  /** One standalone SVG ('' with errors). */
+  svg: string;
+  errors: DiagramError[];
+}
+
+export function render(source: string, options?: RenderOptions): RenderResult;
+/** Standalone SVG; throws on errors. */
+export function renderSVG(source: string, options?: RenderOptions): string;
+/** Render a diagram built in code with Term / Equation. */
+export function renderModel(model: Term | Equation, options?: RenderOptions): RenderResult;
+export function parse(source: string, options?: Pick<RenderOptions, 'unit' | 'styles'>): {
+  items: Array<{ op: string; term?: Term; ellipsis?: boolean }>;
+  styles: Record<string, { base: string; opts: Record<string, unknown> }>;
+  unit?: number;
+  errors: DiagramError[];
+};
+
+export function themeCSS(options?: { fumadocs?: boolean; media?: boolean }): string;
+export const TOKENS: { light: Record<string, string>; dark: Record<string, string> };
+/** A token (electron, phonon, photon, c4, c5, ink, muted, surface, or teal, violet, ...) as a CSS value. */
+export function cssColor(color: string): string;
+
+export type BuiltinLineStyle =
+  | 'fermion' | 'fermion2' | 'phonon' | 'phonon2' | 'photon' | 'photon2' | 'coulomb' | 'screened'
+  | 'field' | 'field2' | 'gluon' | 'gluon2' | 'scalar' | 'scalar2' | 'ghost' | 'plain' | 'plain2'
+  | 'boson' | 'boson2' | 'impurity' | 'electron' | 'electron2' | 'hole' | 'higgs' | 'interaction';
+export type BuiltinShape =
+  | 'dot' | 'charge' | 'current' | 'none' | 'point' | 'disk' | 'hatched' | 'open' | 'cross' | 'otimes'
+  | 'square' | 'blob' | 'bubble' | 'box' | 'triangle';
+
+export const LINE_STYLES: Record<string, { pattern: string; color: string; arrow?: boolean; double?: boolean; heavy?: boolean }>;
+export const SHAPES: Record<string, { kind: string; color?: string; r?: number; ru?: number; wu?: number; hu?: number; trim?: boolean }>;
+
+export interface TemplateSpec {
+  title: string;
+  example: string;
+  params: Record<string, string | number | boolean>;
+  flags?: Record<string, Record<string, string | number | boolean>>;
+  build(params: Record<string, string | number | boolean>): Term | Equation;
+}
+export const TEMPLATES: Record<string, TemplateSpec>;
+
+/** 'a', 'a.nw' (anchor), [x, y] in units, or { rel: [dx, dy] } relative to the other end. */
+export type Endpoint = string | [number, number] | { rel: [number, number] };
+
+export interface EdgeOptions {
+  arrow?: 'fwd' | 'back' | 'none';
+  /** Reverse the default arrow of a fermion-like style. */
+  flip?: boolean;
+  arrowAt?: 'mid' | 'end' | 'start';
+  label?: string;
+  /** left / right of the written direction; in / out of an arc or a loop. */
+  side?: 'left' | 'right' | 'in' | 'out';
+  /** A side of the page: on a straight line it places the label, on an arc the bulge, on a loop the loop. */
+  above?: boolean;
+  below?: boolean;
+  dist?: number;
+  pos?: number;
+  /** Arc height as a fraction of the chord (0.5 = half circle); positive bulges left of from -> to. */
+  bend?: number;
+  /** Arc height in diagram units, the same units as vertex positions; needs above or below. */
+  bulge?: number;
+  loop?: boolean;
+  dir?: string | number;
+  size?: number;
+  cw?: boolean;
+  mom?: string;
+  momside?: 'left' | 'right';
+  momdir?: 'back';
+  color?: string;
+  width?: number;
+  amp?: number;
+  wl?: number;
+  dash?: string;
+  dressed?: boolean;
+  bare?: boolean;
+  heavy?: boolean;
+  thin?: boolean;
+  double?: boolean;
+  faint?: boolean;
+  opacity?: number;
+}
+
+export interface NodeOptions {
+  label?: string;
+  pos?: string;
+  color?: string;
+  /** Radius in units (blob, triangle, small glyphs). */
+  r?: number;
+  w?: number;
+  h?: number;
+  dir?: string | number;
+  size?: number;
+  faint?: boolean;
+}
+
+export class Term {
+  title: string | null;
+  caption: string | null;
+  node(name: string, x: number, y: number, shape?: BuiltinShape | string, opts?: NodeOptions): string;
+  /** An invisible point; returns its generated name. */
+  pt(x: number, y: number): string;
+  edge(from: Endpoint, to: Endpoint, style?: BuiltinLineStyle | string, opts?: EdgeOptions): this;
+  text(str: string, x: number, y: number, opts?: { size?: number; color?: string; anchor?: 'start' | 'middle' | 'end'; upright?: boolean }): this;
+}
+
+export class Equation {
+  terms: Array<Term | { ellipsis: true }>;
+  ops: string[];
+  title: string | null;
+  add(op: string, term: Term | { ellipsis: true }): this;
+}
