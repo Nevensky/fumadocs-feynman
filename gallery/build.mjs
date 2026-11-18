@@ -1,7 +1,7 @@
 // Builds gallery/index.html: a static gallery (pre-rendered SVG) plus a live playground that imports ./src.
 // node gallery/build.mjs
 import { writeFileSync } from 'node:fs';
-import { render, TEMPLATES } from '../src/index.js';
+import { render, expand, templatesIn, TEMPLATES } from '../src/index.js';
 import { EXAMPLES } from '../examples/examples.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -22,7 +22,13 @@ const PRESETS = [
   ['Cooperon', byId['crossed'].source],
   ['BSE', byId['bse'].source],
   ['T-matrix', byId['tmatrix'].source],
-  ['Parquet', byId['parquet'].source]
+  ['Parquet', byId['parquet'].source],
+  ['GT like GW', byId['gt-gw'].source],
+  ['GT ladder (BSE)', byId['gt-bse'].source],
+  ['Hedin to W³', byId['hedin3'].source],
+  ['Hedin vertex Γ', byId['hedin-vertex'].source],
+  ['Trion', byId['trions'].source],
+  ['Biexciton', byId['biexciton'].source]
 ];
 
 // particle legend for the header, drawn by the renderer itself
@@ -44,11 +50,20 @@ const gallery = groups.map((g) => {
     const r = render(ex.source, { id: 'g-' + ex.id });
     const w = +(r.svg.match(/width="(\d+)"/) || [0, 0])[1];
     const wide = w > 330 || r.html.includes('feyn-eq');
+    // a block that uses a template shows it twice: as written, and written out by hand (expand())
+    const hand = templatesIn(ex.source).length ? expand(ex.source) : null;
+    const src = hand
+      ? `<div class="srcs">
+  <div class="tabs" role="group" aria-label="Show the source"><button type="button" data-tab="tpl" aria-pressed="true">Template</button><button type="button" data-tab="hand" aria-pressed="false">By hand</button></div>
+  <pre class="src" data-pane="tpl"><code>${esc(ex.source)}</code></pre>
+  <pre class="src" data-pane="hand" hidden><code>${esc(hand)}</code></pre>
+</div>`
+      : `<pre class="src"><code>${esc(ex.source)}</code></pre>`;
     return `<article class="card${wide ? ' wide' : ''}">
-  <div class="card-head"><h4>${esc(ex.title)}</h4><button type="button" class="btn ghost edit" data-src="${esc(ex.source)}">Edit in playground</button></div>
+  <div class="card-head"><h4>${esc(ex.title)}</h4><button type="button" class="btn ghost edit" data-src="${esc(ex.source)}"${hand ? ` data-hand="${esc(hand)}"` : ''}>Edit in playground</button></div>
   ${ex.note ? `<p class="note">${esc(ex.note).replace(/`([^`]+)`/g, '<code>$1</code>')}</p>` : ''}
   <div class="fig">${r.html}</div>
-  <pre class="src"><code>${esc(ex.source)}</code></pre>
+  ${src}
 </article>`;
   }).join('\n');
   return `<h3 class="group" id="${slug(g)}">${esc(g)}</h3>\n<div class="cards">${cards}</div>`;
@@ -62,11 +77,13 @@ const statements = [
   ['options', 'bend=0.4 · dressed · side=right · mom="\\mathbf{q}" · arrow=end · color=teal'],
   ['inline point', '(-0.6,0) -- a fermion · +(0.6,0) is relative'],
   ['anchor', 'K.nw · K.se · S.e · S.30'],
+  ['label a vertex', 'a "\\rho_{n\\mathbf{k},m\\mathbf{k}+\\mathbf{q}}(\\mathbf{G})" pos=below · a current · works on a template\u2019s vertices too'],
   ['external leg', 'leg a left fermion in "n\\mathbf{k}"'],
   ['self-loop', 'v -- v phonon loop dir=up size=1.2'],
   ['text, caption', 'text "g^{DW}" at 0,-0.5 · caption "Fock"'],
   ['notation', 'style D = photon · style F = phonon dressed'],
-  ['equation', 'a line starting with = + − × ≈ → begins a term · ... · | for no operator']
+  ['equation', 'a line starting with = + − × ≈ → begins a term · ... · | for no operator · \\\\ starts a new row'],
+  ['by hand', 'expand(source) writes a template out vertex by vertex · the By hand tabs below']
 ].map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td><code>${esc(v)}</code></td></tr>`).join('');
 
 const templateRows = Object.entries(TEMPLATES).map(([name, t]) => {
@@ -214,6 +231,12 @@ textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3
 .fig .feyn { margin: 6px 0 !important; }
 pre.src { margin: 0; background: var(--bg); border: 1px solid var(--rule); border-radius: 5px; padding: 8px 10px; overflow-x: auto; font: 0.78rem/1.5 var(--font-mono); color: var(--fg-2); }
 pre.src code { font-size: 1em; }
+.srcs { display: grid; gap: 0; }
+.tabs { display: flex; gap: 2px; }
+.tabs button { font: 500 0.74rem var(--font-ui); border: 1px solid var(--rule); border-bottom: 0; background: transparent; color: var(--muted); border-radius: 5px 5px 0 0; padding: 3px 10px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--bg); color: var(--fg); }
+.tabs button:hover { color: var(--accent-text); }
+.srcs pre.src { border-top-left-radius: 0; }
 
 /* reference */
 .ref-grid { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
@@ -260,6 +283,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
       <textarea id="pg-src" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">${esc(DEFAULT_SRC)}</textarea>
       <div class="pg-bar">
         <label for="pg-unit">Scale <input type="range" id="pg-unit" min="28" max="60" step="2" value="40"><output id="pg-unit-out" for="pg-unit">40 px/unit</output></label>
+        <button type="button" class="btn" id="pg-expand" title="Replace the block by the same diagram written out vertex by vertex">Write out by hand</button>
         <button type="button" class="btn" id="pg-copy">Copy as MDX</button>
       </div>
       <ol class="errors" id="pg-errors" hidden></ol>
@@ -305,7 +329,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
 </div>
 
 <script type="module">
-import { render } from './src/index.js';
+import { render, expand, templatesIn } from './src/index.js';
 const $ = (s) => document.querySelector(s);
 const src = $('#pg-src'), out = $('#pg-out'), errs = $('#pg-errors'), unit = $('#pg-unit'), unitOut = $('#pg-unit-out'), status = $('#pg-status');
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -328,18 +352,59 @@ function update() {
   store.set('feyn-draft', src.value);
 }
 const schedule = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
-src.addEventListener('input', schedule);
+// a message about the last action goes once the source changes
+src.addEventListener('input', () => { status.textContent = ''; schedule(); });
 unit.addEventListener('input', schedule);
 
 const presets = [...document.querySelectorAll('.presets button')];
 function load(text, from) {
   src.value = text;
+  status.textContent = '';
   presets.forEach((b) => b.setAttribute('aria-pressed', String(b === from)));
   update();
 }
 presets.forEach((b) => b.addEventListener('click', () => load(b.dataset.src, b)));
+// the source tabs of all cards switch together, and the choice is remembered
+const showSource = (which) => {
+  document.querySelectorAll('.srcs').forEach((box) => {
+    box.querySelectorAll('.tabs button').forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.tab === which)));
+    box.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== which; });
+  });
+  store.set('feyn-source-tab', which);
+};
+document.querySelectorAll('.srcs .tabs button').forEach((t) => t.addEventListener('click', () => {
+  // the cards above change height too: keep the clicked tab where it was on the screen
+  const before = t.getBoundingClientRect().top;
+  showSource(t.dataset.tab);
+  const moved = t.getBoundingClientRect().top - before;
+  if (Math.abs(moved) > 0.5) window.scrollBy({ top: moved, behavior: 'instant' });
+}));
+if (store.get('feyn-source-tab') === 'hand') showSource('hand');
+
+// replace the whole source as one edit, so that the browser's undo brings the old one back
+function replaceSource(text) {
+  src.focus({ preventScroll: true });
+  src.select();
+  let done = false;
+  try { done = document.execCommand('insertText', false, text); } catch {}
+  if (!done || src.value !== text) src.value = text;
+  update();
+}
+
+$('#pg-expand').addEventListener('click', () => {
+  try {
+    if (!templatesIn(src.value).length) { status.textContent = 'This block uses no template: it is already written by hand.'; return; }
+    replaceSource(expand(src.value));
+    presets.forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    status.textContent = 'Written out by hand: the same diagram, vertex by vertex (undo brings the template back).';
+  } catch { status.textContent = 'Fix the errors first, then write the block out by hand.'; }
+});
+
 document.querySelectorAll('[data-src]:not(.presets button)').forEach((b) => b.addEventListener('click', () => {
-  load(b.dataset.src, null);
+  // from a card, load what its source tabs show
+  const shown = b.closest('.card')?.querySelector('.srcs [data-pane]:not([hidden])');
+  const hand = b.dataset.hand && shown?.dataset.pane === 'hand';
+  load(hand ? b.dataset.hand : b.dataset.src, null);
   document.querySelector('.pg').scrollIntoView({ block: 'start' });
   src.focus({ preventScroll: true });
 }));

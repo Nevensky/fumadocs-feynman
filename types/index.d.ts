@@ -34,11 +34,24 @@ export function renderSVG(source: string, options?: RenderOptions): string;
 /** Render a diagram built in code with Term / Equation. */
 export function renderModel(model: Term | Equation, options?: RenderOptions): RenderResult;
 export function parse(source: string, options?: Pick<RenderOptions, 'unit' | 'styles'>): {
-  items: Array<{ op: string; term?: Term; ellipsis?: boolean }>;
-  styles: Record<string, { base: string; opts: Record<string, unknown> }>;
+  items: Array<{ op: string; br?: boolean; term?: Term; ellipsis?: boolean }>;
+  /** line: where the block defines the style (the site's styles from options have none). */
+  styles: Record<string, { base: string; opts: Record<string, unknown>; line?: number }>;
   unit?: number;
+  grid?: boolean;
   errors: DiagramError[];
+  /** The templates the block uses. */
+  templates: string[];
 };
+/**
+ * The block written out by hand: every vertex, line and text its templates stand for, as plain statements.
+ * render(expand(src)) draws the same picture as render(src). Throws if the block has errors. The block's own
+ * style statements and title are kept; `styles` (the site's, as given to the remark plugin) are known while
+ * expanding and not written out.
+ */
+export function expand(source: string, options?: Pick<RenderOptions, 'styles'>): string;
+/** The names of the templates a block uses (none for a block written by hand). */
+export function templatesIn(source: string, options?: Pick<RenderOptions, 'styles'>): string[];
 
 export function themeCSS(options?: { fumadocs?: boolean; media?: boolean }): string;
 export const TOKENS: { light: Record<string, string>; dark: Record<string, string> };
@@ -50,8 +63,8 @@ export type BuiltinLineStyle =
   | 'field' | 'field2' | 'gluon' | 'gluon2' | 'scalar' | 'scalar2' | 'ghost' | 'plain' | 'plain2'
   | 'boson' | 'boson2' | 'impurity' | 'electron' | 'electron2' | 'hole' | 'higgs' | 'interaction';
 export type BuiltinShape =
-  | 'dot' | 'charge' | 'current' | 'none' | 'point' | 'disk' | 'hatched' | 'open' | 'cross' | 'otimes'
-  | 'square' | 'blob' | 'bubble' | 'box' | 'triangle';
+  | 'dot' | 'charge' | 'current' | 'eph' | 'dipole' | 'spin' | 'none' | 'point' | 'disk' | 'hatched' | 'open'
+  | 'cross' | 'otimes' | 'square' | 'blob' | 'bubble' | 'box' | 'triangle' | 'lens';
 
 export const LINE_STYLES: Record<string, { pattern: string; color: string; arrow?: boolean; double?: boolean; heavy?: boolean }>;
 export const SHAPES: Record<string, { kind: string; color?: string; r?: number; ru?: number; wu?: number; hu?: number; trim?: boolean }>;
@@ -73,6 +86,10 @@ export interface EdgeOptions {
   /** Reverse the default arrow of a fermion-like style. */
   flip?: boolean;
   arrowAt?: 'mid' | 'end' | 'start';
+  /** Where a middle arrow sits, as a fraction along the line (arrowpos= in the language). */
+  arrowPos?: number;
+  /** A mark in the middle of the line: cross (impurity lines) or none. */
+  marker?: 'cross' | 'none';
   label?: string;
   /** left / right of the written direction; in / out of an arc or a loop. */
   side?: 'left' | 'right' | 'in' | 'out';
@@ -104,6 +121,8 @@ export interface EdgeOptions {
   double?: boolean;
   faint?: boolean;
   opacity?: number;
+  /** The line passes over the lines drawn before it: each one it crosses gets a gap (rungs between rails that are not neighbours, crossed interactions). */
+  over?: boolean;
 }
 
 export interface NodeOptions {
@@ -112,6 +131,7 @@ export interface NodeOptions {
   color?: string;
   /** Radius in units (blob, triangle, small glyphs). */
   r?: number;
+  /** Width and height in units of a box or a lens, as drawn on the page (a lens is never thicker than it is long). */
   w?: number;
   h?: number;
   dir?: string | number;

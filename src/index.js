@@ -11,6 +11,7 @@ import { Term, Equation } from './model.js';
 export { parse } from './parse.js';
 export { themeCSS, TOKENS, cssColor } from './theme.js';
 export { TEMPLATES } from './templates.js';
+export { expand, templatesIn } from './expand.js';
 export { LINE_STYLES, SHAPES, Term, Equation } from './model.js';
 
 function hash(s) {
@@ -39,15 +40,15 @@ function renderItems(items, { unit, uid, styles, errors, scriptItalic, grid }) {
   return items.map((it, i) => (it.ellipsis ? { ellipsis: true } : renderTerm(it.term, { unit, uid: `${uid}-${i}`, styles, errors, scriptItalic, grid })));
 }
 
-function assemble(results, ops, { caption, title }) {
+function assemble(results, ops, { caption, title }, breaks = []) {
   if (results.length === 1 && !ops[0] && !results[0].ellipsis) {
     const r = results[0];
     const desc = title || r.desc;
     return { html: figure(svgWrap(r, desc), caption ?? r.caption), svg: svgWrap(r, desc) };
   }
   const desc = title || `Equation: ${results.map((r, i) => `${ops[i] ? ops[i] + ' ' : ''}${r.ellipsis ? '…' : `(${r.desc})`}`).join(' ')}`;
-  const html = figure(equationHTML(results, ops), caption, ` role="group" aria-label="${escapeXML(desc)}"`);
-  return { html, svg: svgWrap(equationSVG(results, ops), desc) };
+  const html = figure(equationHTML(results, ops, breaks), caption, ` role="group" aria-label="${escapeXML(desc)}"`);
+  return { html, svg: svgWrap(equationSVG(results, ops, breaks), desc) };
 }
 
 /**
@@ -65,8 +66,8 @@ export function render(source, options = {}) {
   if (!doc.items.length) errors.push({ message: 'empty diagram' });
   errors.sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
   if (errors.length) return { html: errorHTML(errors, source), svg: '', errors };
-  const ops = doc.items.map((it) => it.op || '');
-  return { ...assemble(results, ops, options), errors };
+  const ops = doc.items.map((it) => it.op || ''), breaks = doc.items.map((it, i) => i > 0 && !!it.br);
+  return { ...assemble(results, ops, options, breaks), errors };
 }
 
 /** Standalone SVG string (throws on errors). */

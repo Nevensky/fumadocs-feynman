@@ -47,6 +47,8 @@ export function resolveStyle(name, opts = {}, userStyles = {}) {
   st.wl = +all.wl || (st.pattern === 'zigzag' ? (heavyZig ? 9.5 : 7) : 9);
   if (all.dash) st.dash = String(all.dash);
   if (all.marker !== undefined) st.marker = all.marker;
+  st.faint = !!all.faint;
+  if (all.opacity != null) st.opacity = all.opacity;
   return st;
 }
 
@@ -60,7 +62,7 @@ function clearance(st) {
 
 /** Parameters t (along polyline a, 0..1) where two polylines cross. */
 function crossings(a, b) {
-  const out = [], n = a.length - 1;
+  const out = [], n = a.length - 1, eps = 1e-7;
   for (let i = 0; i < n; i++) {
     const [x1, y1] = a[i], [x2, y2] = a[i + 1];
     for (let j = 0; j < b.length - 1; j++) {
@@ -68,7 +70,8 @@ function crossings(a, b) {
       const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
       if (Math.abs(den) < 1e-9) continue;
       const ta = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den, tb = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-      if (ta >= 0 && ta <= 1 && tb >= 0 && tb <= 1) out.push((i + ta) / n);
+      // a little slack, so that a crossing exactly where two pieces of a line meet is not lost between them
+      if (ta >= -eps && ta <= 1 + eps && tb >= -eps && tb <= 1 + eps) out.push((i + Math.min(1, Math.max(0, ta))) / n);
     }
   }
   return out;
@@ -82,6 +85,10 @@ function halfWidth(st) {
 }
 
 // ---------- line patterns ----------
+// a count of waves, teeth, dashes or dots: rounded to 1/1000 first, so that a length at exactly n + 1/2 periods
+// rounds the same way whether its ends carry floating-point noise or were written out to four decimals
+const cnt = (x) => Math.round(Math.round(x * 1000) / 1000);
+
 function poly(P, dec = f1) {
   let d = `M${dec(P[0][0])} ${dec(P[0][1])}`;
   for (let i = 1; i < P.length; i++) d += `L${dec(P[i][0])} ${dec(P[i][1])}`;
@@ -108,12 +115,12 @@ function solidD(c, off) {
 }
 
 function waveD(c, off, amp, wl) {
-  const L = G.length(c), nw = Math.max(1, Math.round(L / wl)), N = Math.max(16, nw * 10);
+  const L = G.length(c), nw = Math.max(1, cnt(L / wl)), N = Math.max(16, nw * 10);
   return poly(G.sample(c, N).map((p, i) => G.offset(p, off + amp * Math.sin((G.TAU * nw * i) / N))));
 }
 
 function zigzagD(c, off, amp, wl) {
-  const L = G.length(c), nz = Math.max(2, Math.round(L / wl));
+  const L = G.length(c), nz = Math.max(2, cnt(L / wl));
   const pts = G.sample(c, nz * 2);
   return poly(pts.map((p, i) => G.offset(p, off + (i === 0 || i === pts.length - 1 ? 0 : (i % 2 ? 1 : -1) * amp))));
 }
@@ -122,7 +129,7 @@ function zigzagD(c, off, amp, wl) {
 // theta runs over n turns less half a turn, so the coil is mirror-symmetric: n arches and n - 1 open loops,
 // both ends leave the axis on an arch, and the coil never runs past its ends
 function coilD(c, amp, wl) {
-  const L = G.length(c), n = Math.max(2, Math.round(L / wl)), Th = G.TAU * n - Math.PI;
+  const L = G.length(c), n = Math.max(2, cnt(L / wl)), Th = G.TAU * n - Math.PI;
   let kr = 1.1 * amp, lam = (L - 2 * kr) / Th;
   if (kr < 1.3 * lam) { kr = 1.3 * lam; lam = (L - 2 * kr) / Th; }
   const N = n * 24, P = [];
@@ -135,24 +142,42 @@ function coilD(c, amp, wl) {
   return poly(P);
 }
 
-// dashes stretched so that a line starts and ends on a full dash
-function dashFit(L, spec, scale = 1) {
+// dashes stretched so that a line starts and ends on a full dash; `centers` (px along the line) are crossings of
+// a line that passes over others, which should each fall on a dash, not between two
+export function dashFit(L, spec, scale = 1, centers = []) {
   const [d, g] = spec.split(/[\s,]+/).map(Number);
   if (!(d > 0) || !(g >= 0)) return spec;
   // keep the dash length and put the rest into the gaps, so that every line of a style has the same rhythm
   // and starts and ends on a full dash; very short lines fall back to scaling both
-  let k = Math.max(2, Math.round((L + g) / (d + g))), gap = (L - k * d) / (k - 1);
+  let k = Math.max(2, cnt((L + g) / (d + g))), gap = (L - k * d) / (k - 1);
   while (k > 2 && gap < 0.75 * g) { k--; gap = (L - k * d) / (k - 1); }
   while (gap > 1.4 * g && (L - (k + 1) * d) / k >= 0.75 * g) { k++; gap = (L - k * d) / (k - 1); }
   let dd = d;
   if (gap < 0.75 * g) { const sc = L / (2 * d + g); dd = d * sc; gap = g * sc; }
+  else if (centers.length) {
+    // of the dash counts whose gaps stay within reason, take the one whose dashes sit closest to the crossings
+    const miss = (kk, gg) => Math.max(...centers.map((c) => {
+      const j = Math.min(kk - 1, Math.max(0, Math.round((c - d / 2) / (d + gg))));
+      return Math.abs(c - (d / 2 + j * (d + gg)));
+    }));
+    let best = { gap, e: miss(k, gap) };
+    for (let kk = Math.max(2, k - 2); kk <= k + 2; kk++) {
+      const gg = (L - kk * d) / (kk - 1);
+      if (kk === k || gg < 0.6 * g || gg > 1.6 * g) continue;
+      const e = miss(kk, gg);
+      if (e < best.e - 0.5) best = { gap: gg, e };
+    }
+    gap = best.gap;
+  }
   // a strand of a double line on an arc is longer or shorter than the centre line: the same dashes, scaled
   return `${f(dd * scale)} ${f(gap * scale)}`;
 }
-const dotFit = (L) => `0 ${f(L / Math.max(2, Math.round(L / 4.2)))}`;
+const dotFit = (L) => `0 ${f(L / Math.max(2, cnt(L / 4.2)))}`;
 
 function arrowHead(x, y, tx, ty, color, scale = 1) {
-  const ang = (Math.atan2(ty, tx) * 180) / Math.PI;
+  // one angle for a head that points left, whatever the sign of a vanishing y component (180, never -180)
+  let ang = Math.round((Math.atan2(ty, tx) * 18000) / Math.PI) / 100;
+  if (ang <= -180) ang += 360;
   return `<path d="M5 0L-4 -4.5L-2 0L-4 4.5Z" transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})${scale !== 1 ? ` scale(${f(scale)})` : ''}" style="fill:${color}"/>`;
 }
 
@@ -226,6 +251,13 @@ export function renderTerm(term, ctx) {
     const o = nd.opts || {}, x = nd.x * u, y = -nd.y * u;
     let shape;
     if (sh.kind === 'box') shape = { kind: 'rect', x, y, w: (+o.w || sh.wu) * u, h: (+o.h || sh.hu) * u };
+    else if (sh.kind === 'lens') {
+      // upright unless dir says left or right; w and h are its width and height on the page, as for a box (by
+      // default wu thick and hu long). It is never thicker than it is long: two circles cannot make that lens.
+      const horiz = Math.abs(dirVec(o.dir, 90)[0]) > 0.7;
+      const along = (+(horiz ? o.w : o.h) || sh.hu) * u, across = Math.min(along, (+(horiz ? o.h : o.w) || sh.wu) * u);
+      shape = { kind: 'lens', x, y, horiz, w: horiz ? along : across, h: horiz ? across : along };
+    }
     else shape = { kind: 'circle', x, y, r: o.r != null ? +o.r * u : sh.ru ? sh.ru * u : sh.r };
     N.set(nd.name, { ...nd, px: x, py: y, sh, shape, o });
   }
@@ -282,7 +314,7 @@ export function renderTerm(term, ctx) {
 
   // lines
   const desc = [];
-  const crossables = []; // sampled patterned lines drawn so far
+  const drawn = []; // every line drawn so far, sampled, for the gaps where later lines cross it
   for (const e of term.edges) {
     const o = e.opts || {};
     const st = resolveStyle(e.style, o, styles);
@@ -293,10 +325,26 @@ export function renderTerm(term, ctx) {
     if (e.from.rel && B) A = place(e.from, B);
     if (e.to.rel && A) B = place(e.to, A);
     if (!A || !B) continue;
-    // box ports take their face from where the other end lies; a relative end then follows the port
+    // box ports take their face from the direction in which the line leaves them: towards the other end for a
+    // straight line, along the tangent for an arc (an arc over the top of a box leaves from its top face);
+    // a relative end then follows the port
     const Ap = A.p, Bp = B.p;
-    if (A.port) { A.p = port(A.node, A.port, Bp); if (e.to.rel) B = place(e.to, A); }
-    if (B.port) { B.p = port(B.node, B.port, Ap); if (e.from.rel) A = place(e.from, B); }
+    let towardA = Bp, towardB = Ap;
+    if ((A.port || B.port) && !o.loop && (o.bend != null || o.bulge != null)) {
+      const pw = o.above ? 1 : o.below ? -1 : 0, cdx = Bp[0] - Ap[0], cdy = Bp[1] - Ap[1];
+      const s0 = pw && Math.abs(cdy) <= Math.abs(cdx) + 1e-6 ? pw * Math.sign(cdx) : 0;
+      const b0 = bendOf(o, Ap, Bp, u, s0).bend;
+      if (b0) {
+        const c0 = G.arc(Ap, Bp, b0), ta = G.tan(c0, 0), tb = G.tan(c0, 1);
+        const tA = [Ap[0] + ta[0] * 1e3, Ap[1] + ta[1] * 1e3], tB = [Bp[0] - tb[0] * 1e3, Bp[1] - tb[1] * 1e3];
+        // the tangent's faces only if the arc still fits between the ports they give (two ports on one face are
+        // closer than the corners, so a bulge measured on the corners may not fit); else the chord's faces
+        const pa = A.port ? port(A.node, A.port, tA) : Ap, pb = B.port ? port(B.node, B.port, tB) : Bp;
+        if (!bendOf(o, pa, pb, u, s0).error) { towardA = tA; towardB = tB; }
+      }
+    }
+    if (A.port) { A.p = port(A.node, A.port, towardA); if (e.to.rel) B = place(e.to, A); }
+    if (B.port) { B.p = port(B.node, B.port, towardB); if (e.from.rel) A = place(e.from, B); }
 
     const isLoop = o.loop || (A.node && A.node === B.node && !e.from.anchor && !e.to.anchor);
     // above / below name a side of the page, whatever order the ends are written in
@@ -338,7 +386,12 @@ export function renderTerm(term, ctx) {
       // a double line is trimmed where its strands (not its centre line) meet the rim
       const rimOf = (X) => (X.shape || !soft || !X.rim ? X.shape : { ...X.rim, r: st.double ? Math.sqrt(Math.max(0, X.rim.r ** 2 - DOUBLE ** 2)) + 0.2 : X.rim.r + 0.4 });
       curve = G.trim(G.arc(A.p, B.p, bend), rimOf(A), rimOf(B));
-      if (!curve) continue;
+      if (!curve) {
+        // nothing of it lies outside the shapes at its ends: say so rather than leave it out without a word
+        const nm = (ep) => (ep.node && !N.get(ep.node)?.anon ? `"${ep.node}"` : 'a point');
+        err(`the line from ${nm(e.from)} to ${nm(e.to)} lies inside the vertex at its end: move its ends apart`, e.line);
+        continue;
+      }
     }
     const L = G.length(curve);
     // arrows and labels sit halfway between two vertices, even when only one end was trimmed;
@@ -346,32 +399,64 @@ export function renderTerm(term, ctx) {
     const bothVertices = !isLoop && A.node && B.node && !A.node.anon && !B.node.anon && curve.t1 != null;
     const tMid = bothVertices ? Math.min(0.9, Math.max(0.1, (0.5 - curve.t0) / (curve.t1 - curve.t0))) : 0.5;
     const col = cssColor(st.color);
-    const fade = o.faint ? ';opacity:.35' : o.opacity ? `;opacity:${+o.opacity}` : '';
+    const fade = st.faint ? ';opacity:.35' : st.opacity ? `;opacity:${+st.opacity}` : '';
     const hw = halfWidth(st);
 
+    // Where this line crosses a line drawn before it, a band of the page colour laid under it cuts a gap in the
+    // other line, so that it reads as passing over. Patterned lines do this among themselves; a line marked
+    // `over` does it to every line it crosses (a rung between rails that are not neighbours, crossed rungs).
     const patterned = st.pattern === 'wave' || st.pattern === 'zigzag' || st.pattern === 'coil';
-    if (patterned) {
-      const mine = G.sample(curve, 48).map((p) => [p.x, p.y]);
-      for (const other of crossables) {
-        for (const t of crossings(mine, other.pts)) {
-          const pt = G.at(curve, t), near = (q) => Math.hypot(pt[0] - q[0], pt[1] - q[1]) < 10;
-          if (near(mine[0]) || near(mine[mine.length - 1]) || near(other.pts[0]) || near(other.pts[other.pts.length - 1])) continue;
-          const dt = 11 / L;
-          lines.push(`<path d="${solidD(G.sub(curve, Math.max(0, t - dt), Math.min(1, t + dt)), 0)}" style="stroke:${cssColor('surface')};stroke-width:${f(2 * st.amp + st.width + 3)}"/>`);
-        }
+    const mine = G.sample(curve, 48).map((p) => [p.x, p.y]);
+    const cuts = [], over = [];
+    const seen = (list, t) => list.some((c) => Math.abs(c - t) * L < 4);
+    const haloW = patterned ? 2 * st.amp + st.width + 3 : 2 * hw + 5;
+    // arrowheads are painted after every line, so one at a crossing would sit on top of the line passing over it:
+    // it moves to the middle of the longer piece of its line beside the gap
+    const moveArrow = (ln, pt) => {
+      const a = ln.arrow;
+      let k = 0, dmin = Infinity;
+      ln.pts.forEach((q, i) => { const dd = Math.hypot(q[0] - pt[0], q[1] - pt[1]); if (dd < dmin) { dmin = dd; k = i; } });
+      const tc = k / (ln.pts.length - 1);
+      if (Math.abs(tc - a.t) * ln.L > 22.01) return;
+      const g = (haloW / 2 + 6) / ln.L, left = tc - g, right = 1 - tc - g;
+      if (Math.max(left, right) * ln.L < 13.99) return;
+      const t = left >= right ? left / 2 : tc + g + right / 2;
+      const p = G.at(ln.curve, t), d = G.tan(ln.curve, t), tx = d[0] * a.sgn, ty = d[1] * a.sgn;
+      marks[a.idx] = arrowHead(p[0] - tx * 0.5, p[1] - ty * 0.5, tx, ty, a.col, a.head);
+      a.t = t;
+    };
+    for (const other of drawn) {
+      if (!o.over && !(patterned && other.patterned)) continue;
+      const oa = other.pts[0], ob = other.pts[other.pts.length - 1];
+      for (const t of crossings(mine, other.pts)) {
+        const pt = G.at(curve, t), near = (q) => Math.hypot(pt[0] - q[0], pt[1] - q[1]) < 10;
+        if (near(mine[0]) || near(mine[mine.length - 1])) continue;
+        // lines that meet at a vertex do not cross there, but a rail that is only split at a point (to place
+        // its arrows) still runs on through it
+        if (near(oa) && (!o.over || other.realA)) continue;
+        if (near(ob) && (!o.over || other.realB)) continue;
+        if (o.over && !seen(over, t)) over.push(t);
+        // a dashed or dotted line has gaps of its own: a cut would only leave slivers of dashes beside this line
+        if (other.pattern !== 'dash' && other.pattern !== 'dot' && !seen(cuts, t)) cuts.push(t);
+        if (other.arrow) moveArrow(other, pt);
       }
-      crossables.push({ pts: mine });
     }
+    for (const t of cuts) {
+      const dt = 11 / L;
+      lines.push(`<path d="${solidD(G.sub(curve, Math.max(0, t - dt), Math.min(1, t + dt)), 0)}" style="stroke:${cssColor('surface')};stroke-width:${f(haloW)}"/>`);
+    }
+    const me = { pts: mine, patterned, pattern: st.pattern, realA: !!(A.node && !A.node.anon), realB: !!(B.node && !B.node.anon), curve, L, arrow: null };
+    drawn.push(me);
     if (st.underlay === 'dash') {
       // the dashes under a field line follow the wave: one dash per period, centred where the wave rises through the axis
-      const per = L / Math.max(1, Math.round(L / st.wl));
+      const per = L / Math.max(1, cnt(L / st.wl));
       lines.push(`<path d="${solidD(curve, 0)}" style="stroke:${col};stroke-width:1.2;stroke-dasharray:${f(per / 2)} ${f(per / 2)};stroke-dashoffset:${f(per / 4)}${fade}"/>`);
     }
     for (const off of st.double ? [-DOUBLE, DOUBLE] : [0]) {
       let d, extra = '';
       const strand = curve.type === 'circ' ? (Math.abs(curve.span) * Math.max(0.1, curve.R + off * (Math.sign(curve.span) || 1))) / L : 1;
       switch (st.pattern) {
-        case 'dash': d = solidD(curve, off); extra = `;stroke-dasharray:${dashFit(L, st.dash || '5 4', strand)}`; break;
+        case 'dash': d = solidD(curve, off); extra = `;stroke-dasharray:${dashFit(L, st.dash || '5 4', strand, over.map((t) => t * L))}`; break;
         case 'dot': {
           const aMid = (o.arrow || (st.arrow ? 'fwd' : 'none')) !== 'none' && o.arrowAt !== 'end' && o.arrowAt !== 'start';
           if (aMid) {
@@ -411,6 +496,7 @@ export function renderTerm(term, ctx) {
         // a double line needs a head that clears both strands, but a short leg should not be all arrow
         const head = st.double ? Math.min(DOUBLE_HEAD, Math.max(1.15, L / 24)) : 1;
         arrowMid = { t, half: ARROW_CLEAR };
+        me.arrow = { idx: marks.length, t, sgn, col, head };
         marks.push(arrowHead(p[0] - tx * 0.5, p[1] - ty * 0.5, tx, ty, col, head));
       }
     }
@@ -483,6 +569,13 @@ export function renderTerm(term, ctx) {
       case 'blob':
         nodes.push(`<g${fade}><circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" style="fill:${surface}"/><circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" style="fill:${c};fill-opacity:.13;stroke:${c};stroke-width:1.6"/></g>`);
         break;
+      case 'lens': {
+        const { R, c: half } = G.lensCircles(shape), sw = shape.horiz ? 1 : 0;
+        const [p0, p1] = shape.horiz ? [[x - half, y], [x + half, y]] : [[x, y - half], [x, y + half]];
+        const d = `M${f(p0[0])} ${f(p0[1])}A${f(R)} ${f(R)} 0 0 ${sw} ${f(p1[0])} ${f(p1[1])}A${f(R)} ${f(R)} 0 0 ${sw} ${f(p0[0])} ${f(p0[1])}Z`;
+        nodes.push(`<g${fade}><path d="${d}" style="fill:${surface}"/><path d="${d}" style="fill:${c};fill-opacity:.13;stroke:${c};stroke-width:1.6;stroke-linejoin:round"/></g>`);
+        break;
+      }
       case 'box': {
         const { w, h } = shape;
         const rect = (style) => `<rect x="${f(x - w / 2)}" y="${f(y - h / 2)}" width="${f(w)}" height="${f(h)}" rx="3" style="${style}"/>`;
@@ -498,13 +591,14 @@ export function renderTerm(term, ctx) {
       }
       default: break;
     }
-    if (sh.kind === 'box') bb.box(x - shape.w / 2, y - shape.h / 2, x + shape.w / 2, y + shape.h / 2);
+    if (sh.kind === 'box' || sh.kind === 'lens') bb.box(x - shape.w / 2, y - shape.h / 2, x + shape.w / 2, y + shape.h / 2);
     else if (sh.kind !== 'none') bb.add(x, y, r + 1);
-    else bb.add(x, y, 0);
+    // an invisible point (a template's leg end or joint) counts only through the lines drawn to it
+    else if (!n.anon) bb.add(x, y, 0);
 
     if (o.label) {
       const runs = parseLabel(o.label, lopt);
-      const inside = (sh.kind === 'blob' || sh.kind === 'box' || sh.kind === 'tri') && (!o.pos || o.pos === 'center');
+      const inside = (sh.kind === 'blob' || sh.kind === 'box' || sh.kind === 'tri' || sh.kind === 'lens') && (!o.pos || o.pos === 'center');
       const sc = o.color || sh.color;
       const tc = sc === 'muted' || sc === 'ink' ? cssColor('ink') : cssTextColor(sc);
       if (inside) {
@@ -512,7 +606,8 @@ export function renderTerm(term, ctx) {
         labels.push(labelSVG(runs, x, y - (m.top + m.bottom) / 2, { size: LABEL, color: tc }));
       } else {
         const [dx, dy] = dirVec(o.pos || 'below', -90);
-        const gap = sh.kind === 'box' ? Math.abs(dx) * shape.w / 2 + Math.abs(dy) * shape.h / 2 + 4 : (sh.kind === 'none' ? 0 : r) + 4;
+        // 4 px beyond the shape's reach in the label's direction (a box's reach is its half-sides')
+        const gap = sh.kind === 'lens' ? G.lensReach(shape, dx, dy) + 4 : sh.kind === 'box' ? Math.abs(dx) * shape.w / 2 + Math.abs(dy) * shape.h / 2 + 4 : (sh.kind === 'none' ? 0 : r) + 4;
         placeLabel(labels, bb, runs, x, y, dx, dy, gap, sh.kind === 'none' || sh.kind === 'dot' ? cssColor('ink') : tc, o.size ? +o.size : 13);
       }
     }
@@ -545,7 +640,7 @@ export function renderTerm(term, ctx) {
     for (let j = gyBot; j <= gyTop; j++) g.push(tick(X(gx0) - 5, Y(j) + 3.5, j === 0 ? 'y=0' : num(j), 'end'));
     for (const n of N.values()) {
       if (n.anon) continue;
-      const ox = n.shape.kind === 'rect' ? n.shape.w / 2 : (n.shape.r || 0) * 0.7, oy = n.shape.kind === 'rect' ? n.shape.h / 2 : (n.shape.r || 0) * 0.7;
+      const ox = n.shape.kind === 'rect' || n.shape.kind === 'lens' ? n.shape.w / 2 : (n.shape.r || 0) * 0.7, oy = n.shape.kind === 'rect' || n.shape.kind === 'lens' ? n.shape.h / 2 : (n.shape.r || 0) * 0.7;
       g.push(tick(n.px + ox + 3, n.py - oy - 3, escapeXML(n.name), 'start', teal));
     }
     gridSVG = `<g class="feyn-grid">${g.join('')}</g>`;
@@ -553,28 +648,38 @@ export function renderTerm(term, ctx) {
   }
 
   if (bb.empty) bb.box(0, -10, 20, 10);
-  const x0 = Math.floor(bb.x0 - PAD), y0 = Math.floor(bb.y0 - PAD);
-  const W = Math.ceil(bb.x1 + PAD) - x0, H = Math.ceil(bb.y1 + PAD) - y0;
+  // whole pixels, snapped to 1/100 px first, so that floating-point noise in a coordinate (or a coordinate written
+  // to four decimals) cannot add a pixel of margin
+  const snap = (v) => Math.round(v * 100) / 100;
+  const x0 = Math.floor(snap(bb.x0 - PAD)), y0 = Math.floor(snap(bb.y0 - PAD));
+  const W = Math.ceil(snap(bb.x1 + PAD)) - x0, H = Math.ceil(snap(bb.y1 + PAD)) - y0;
   const inner = (defs.length ? `<defs>${defs.join('')}</defs>` : '') + gridSVG +
     `<g fill="none" stroke-linecap="round" stroke-linejoin="round">${lines.join('')}</g>` + marks.join('') + nodes.join('') + labels.join('');
   const description = term.title || (desc.length ? `${desc.join(', ')}` : 'empty diagram');
   return { inner, x0, y0, W, H, axis: -y0, desc: description, caption: term.caption };
 }
 
+// The SVG stays inline on the baseline even where a CSS reset (Tailwind's preflight in fumadocs) makes every svg
+// display:block; vertical-align:middle: an equation term's baseline is the bottom of its diagram, which puts the
+// diagram's axis on the math axis, and a block svg would let a captioned term's padding lift the diagram instead.
 export function svgWrap(r, desc, cls = 'feyn-svg') {
-  return `<svg xmlns="http://www.w3.org/2000/svg" class="${cls}" viewBox="${r.x0} ${r.y0} ${r.W} ${r.H}" width="${r.W}" height="${r.H}" role="img" aria-label="${escapeXML(desc)}" style="font-family:var(--feyn-font-text,${FONT_INLINE});max-width:100%;height:auto;overflow:visible">${r.inner}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" class="${cls}" viewBox="${r.x0} ${r.y0} ${r.W} ${r.H}" width="${r.W}" height="${r.H}" role="img" aria-label="${escapeXML(desc)}" style="display:inline;vertical-align:baseline;font-family:var(--feyn-font-text,${FONT_INLINE});max-width:100%;height:auto;overflow:visible">${r.inner}</svg>`;
 }
 
 // Equations are laid out as text: each term is an inline box whose diagram axis (y = 0) sits on the
 // math axis of the line (0.27 em above the baseline, where = and + are centred). Rows that wrap
 // align on their own, and an operator stays with the term after it.
-const OP_PX = 22, MATH_AXIS = 0.27 * OP_PX, CAP_H = 21;
+const OP_PX = 22, MATH_AXIS = 0.27 * OP_PX, CAP_H = 21, CAP_STEP = 36, ROW_GAP = 18;
 const OP_STYLE = 'color:var(--feyn-muted,#5a6477);margin:0 12px';
 const CAP_STYLE = 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);white-space:nowrap;font-size:12.5px;line-height:1.35;color:var(--feyn-muted,#5a6477)';
 
-/** Responsive HTML for an equation. */
-export function equationHTML(results, ops) {
-  const depths = results.filter((r) => !r.ellipsis && r.caption).map((r) => r.H - r.axis);
+/** Responsive HTML for an equation; breaks[i] starts a new row before term i. */
+export function equationHTML(results, ops, breaks = []) {
+  // captions of terms of similar depth share a line: depths that follow one another in steps of at most CAP_STEP
+  // px form a group, and each captioned term is padded down to the deepest of its group, so that a deep term
+  // does not strand the others' captions but a row of gently deepening terms still shares one baseline
+  const depths = results.filter((r) => !r.ellipsis && r.caption).map((r) => r.H - r.axis).sort((a, b) => a - b);
+  const groupDepth = (d0) => { let m = d0; for (const d of depths) if (d > m && d - m <= CAP_STEP) m = d; return m; };
   const pairs = results.map((r, i) => {
     const op = ops[i] ? `<span class="feyn-op" style="${OP_STYLE}">${escapeXML(ops[i])}</span>` : '';
     let body;
@@ -583,33 +688,45 @@ export function equationHTML(results, ops) {
       const below = r.H - r.axis;
       // a captioned term is padded down to the deepest captioned term at most 24 px deeper than itself, so
       // captions of terms of similar depth share a line, and an unusually deep term does not strand the others'
-      const near = Math.max(below, ...depths.filter((d) => d - below <= 24));
+      const near = groupDepth(below);
       const pad = r.caption ? near - below + CAP_H : 0;
       const cap = r.caption ? `<span class="feyn-cap" style="${CAP_STYLE}">${labelHTML(r.caption, { text: true })}</span>` : '';
       body = `<span class="feyn-term" style="display:inline-block;position:relative;font-size:0;line-height:0;vertical-align:${f(MATH_AXIS - below)}px${pad ? `;padding-bottom:${f(pad)}px` : ''}">${svgWrap(r, r.desc)}${cap}</span>`;
     }
-    // pairs touch (atomic inlines still wrap between them); a diagram set beside another with | gets a fixed gap
-    const gap = !ops[i] && i > 0 ? 'margin:8px 0 8px 28px' : 'margin:8px 0';
-    return `<span class="feyn-pair" style="display:inline-block;white-space:nowrap;${gap}">${op}${body}</span>`;
+    // pairs touch (atomic inlines still wrap between them); a diagram set beside another with | gets a 28 px space,
+    // which a line break swallows, so that a wrapped row stays centred
+    const br = i > 0 && breaks[i];
+    const gap = !ops[i] && i > 0 && !br ? '<span style="font-size:0;word-spacing:28px"> </span>' : '';
+    return `${br ? '<br>' : ''}${gap}<span class="feyn-pair" style="display:inline-block;white-space:nowrap;margin:8px 0">${op}${body}</span>`;
   });
-  return `<div class="feyn-eq" style="text-align:center;font-family:var(--feyn-font-text,${FONT_INLINE});font-size:${OP_PX}px;line-height:1.1;max-width:100%;overflow-x:auto;overflow-y:hidden">${pairs.join('')}</div>`;
+  // a row too wide for the column wraps into lines of even length (2 + 2 rather than 3 + 1)
+  return `<div class="feyn-eq" style="text-align:center;text-wrap:balance;font-family:var(--feyn-font-text,${FONT_INLINE});font-size:${OP_PX}px;line-height:1.1;max-width:100%;overflow-x:auto;overflow-y:hidden">${pairs.join('')}</div>`;
 }
 
-/** One SVG for a whole equation (for export); the operators sit on the shared axis y = 0. */
-export function equationSVG(results, ops) {
-  let x = 0, y0 = Infinity, y1 = -Infinity;
-  const parts = [];
+/** One SVG for a whole equation (for export): the operators of each row sit on its axis; rows are centred. */
+export function equationSVG(results, ops, breaks = []) {
+  const rows = [];
+  let row = null;
   const opText = (t) => {
     const w = 22 * 0.62 * [...t].length + 8;
-    parts.push(`<text x="${f(x + w / 2)}" y="${f(MATH_AXIS)}" text-anchor="middle" font-size="22" style="fill:var(--feyn-muted,#5a6477)">${escapeXML(t)}</text>`);
-    x += w + 4; y0 = Math.min(y0, -16); y1 = Math.max(y1, 10);
+    row.parts.push((dx, dy) => `<text x="${f(dx + w / 2)}" y="${f(dy + MATH_AXIS)}" text-anchor="middle" font-size="22" style="fill:var(--feyn-muted,#5a6477)">${escapeXML(t)}</text>`);
+    row.xs.push(row.x); row.x += w + 4; row.y0 = Math.min(row.y0, -16); row.y1 = Math.max(row.y1, 10);
   };
   results.forEach((r, i) => {
+    if (!row || (i > 0 && breaks[i])) { row = { parts: [], xs: [], x: 0, y0: Infinity, y1: -Infinity }; rows.push(row); }
     if (ops[i]) opText(ops[i]);
     if (r.ellipsis) { opText('⋯'); return; }
-    parts.push(`<g transform="translate(${f(x - r.x0)} 0)">${r.inner}</g>`);
-    x += r.W + 4; y0 = Math.min(y0, r.y0); y1 = Math.max(y1, r.y0 + r.H);
+    row.parts.push((dx, dy) => `<g transform="translate(${f(dx - r.x0)} ${f(dy)})">${r.inner}</g>`);
+    row.xs.push(row.x); row.x += r.W + 4; row.y0 = Math.min(row.y0, r.y0); row.y1 = Math.max(row.y1, r.y0 + r.H);
   });
-  const W = Math.ceil(x), H = Math.ceil(y1 - y0);
-  return { inner: parts.join(''), x0: 0, y0: Math.floor(y0), W, H };
+  const W = Math.ceil(Math.max(...rows.map((q) => q.x)));
+  const parts = [];
+  let y = 0;
+  rows.forEach((q, k) => {
+    if (k > 0) y += rows[k - 1].y1 + ROW_GAP - q.y0;
+    const shift = rows.length > 1 ? (W - q.x) / 2 : 0;
+    q.parts.forEach((p, j) => parts.push(p(shift + q.xs[j], y)));
+  });
+  const top = rows[0].y0, bottom = y + rows[rows.length - 1].y1;
+  return { inner: parts.join(''), x0: 0, y0: Math.floor(top), W, H: Math.ceil(bottom - top) };
 }

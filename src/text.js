@@ -19,6 +19,8 @@ const SYMBOL = {
   ',': ' ', ';': ' ', ':': ' ', '!': '', ' ': ' ', '{': '{', '}': '}', '_': '_', '^': '^', '%': '%',
   '#': '#', '&': '&', '\\': '\\', '|': '‖'
 };
+// symbols set with space on both sides when the source has it (binary operators and relations)
+const OPERATOR = new Set(['times', 'cdot', 'pm', 'mp', 'to', 'rightarrow', 'leftarrow', 'leftrightarrow', 'sim', 'approx', 'equiv', 'neq', 'ne', 'le', 'leq', 'ge', 'geq', 'star', 'ast', 'circ', 'bullet', 'otimes', 'oplus', 'perp', 'parallel', 'minus']);
 const ACCENT = { bar: '̄', overline: '̅', tilde: '̃', widetilde: '̃', hat: '̂', widehat: '̂', dot: '̇', ddot: '̈', vec: '⃗', check: '̌', breve: '̆' };
 const FONT = { mathrm: 'rm', text: 'rm', textrm: 'rm', operatorname: 'rm', mathsf: 'rm', mathit: 'it', textit: 'it', mathbf: 'bf', textbf: 'bf', boldsymbol: 'bi', bm: 'bi' };
 
@@ -80,7 +82,17 @@ export function parseLabel(src, opts = {}) {
     i++;
     let name;
     const m = /^[A-Za-z]+/.exec(s.slice(i));
-    if (m) { name = m[0]; i += name.length; } else { name = s[i] ?? ''; i++; }
+    if (m) {
+      name = m[0]; i += name.length;
+      // as in TeX, a space after a control word only ends it (\delta G is δG). A space beside an operator stays, so
+      // that A \times B and \Sigma = x keep one space on each side, and text keeps every space.
+      if (!ctx.text && !OPERATOR.has(name)) {
+        let j = i;
+        while (s[j] === ' ') j++;
+        const nextWord = s[j] === '\\' ? (/^[A-Za-z]+/.exec(s.slice(j + 1)) || [''])[0] : '';
+        if (j > i && j < n && !/[+\-=<>−]/.test(s[j]) && !OPERATOR.has(nextWord)) i = j;
+      }
+    } else { name = s[i] ?? ''; i++; }
     if (FONT[name]) { readArg(out, { ...ctx, font: FONT[name], text: name.startsWith('text') || name === 'operatorname' }); return; }
     if (ACCENT[name]) {
       const tmp = [];
@@ -138,20 +150,59 @@ const TALL = /[A-Z0-9bdfhkltΑ-Ωβδζθλξϑħℏ∂()[\]{}′]/;
 const DEEP = /[gjpqyβγζημξρφχψς()[\]{},;]/;
 
 /**
+ * Where the runs go along the line: the shift before each run and the total advance (in px at `size`). A
+ * superscript after an italic letter gets TeX's italic correction. A subscript right after a superscript (or after
+ * primes, as in G'_z) is set under it, and a superscript right after a subscript over it, as TeX stacks
+ * ρ^*_{nk}; what follows starts after the wider of the two.
+ */
+function layoutRuns(runs, size) {
+  const dx = runs.map(() => 0);
+  const width = (r) => { let w = 0; for (const ch of r.t) w += advance(ch) * (r.s ? size * SCRIPT : size) * (r.bf ? 1.06 : 1); return w; };
+  let x = 0, stack = null;   // stack: the scripts on one base { base: x at the base's end, baseRun, end, levels }
+  for (let k = 0; k < runs.length;) {
+    let j = k, w = 0;
+    while (j < runs.length && runs[j].s === runs[k].s) w += width(runs[j++]);
+    const s = runs[k].s;
+    if (s !== 0 && stack && !stack.levels.has(s)) {
+      // the other script of the same base: back to the base's end (a superscript keeps its italic correction)
+      const start = stack.base + (s === 1 ? italicCorrection(stack.baseRun, runs[k]) * size : 0);
+      dx[k] = start - x; x = start + w;
+      stack.levels.add(s); stack.end = Math.max(stack.end, x);
+    } else {
+      // past the wider script of the last stack, then on along the line
+      if (stack && stack.end > x) { dx[k] += stack.end - x; x = stack.end; }
+      stack = null;
+      if (s !== 0) {
+        const ic = italicCorrection(runs[k - 1], runs[k]) * size;
+        stack = { base: x, baseRun: runs[k - 1], levels: new Set([s]) };
+        dx[k] += ic; x += ic + w; stack.end = x;
+      } else {
+        x += w;
+        // primes at the end of the base are a superscript: a subscript after them goes under them
+        const primes = runs[j - 1].t.match(/′+$/);
+        if (primes) stack = { base: x - primes[0].length * advance('′') * size, baseRun: null, levels: new Set([1]), end: x };
+      }
+    }
+    k = j;
+  }
+  return { dx, w: Math.max(x, stack ? stack.end : x) };
+}
+
+/**
  * Width and vertical extent (relative to the baseline, + downwards) of a label at font size `size`. The extent
  * follows the glyphs: x-height or cap height on top, descenders only when there are some. A label above a line
  * and one below it then sit at the same visible distance from it.
  */
 export function measureRuns(runs, size) {
-  let w = 0, top = -0.47 * size, bottom = 0;
-  runs.forEach((r, k) => {
+  const { w } = layoutRuns(runs, size);
+  let top = -0.47 * size, bottom = 0;
+  runs.forEach((r) => {
     const fs = r.s ? size * SCRIPT : size;
-    w += italicCorrection(runs[k - 1], r) * size;
-    for (const ch of r.t) w += advance(ch) * fs * (r.bf ? 1.06 : 1);
     const base = r.s === 1 ? -SUP * size : r.s === -1 ? SUB * size : 0;
     const visible = r.t.replace(/[\s   ]/g, '');
     if (!visible) return;
-    const up = (TALL.test(visible) || r.bf ? 0.7 : 0.47) * fs, down = DEEP.test(visible) ? 0.22 * fs : 0.02 * fs;
+    // bold changes the width, not the height; the dots of i and j reach above the x-height
+    const up = (TALL.test(visible) ? 0.7 : /[ij]/.test(visible) ? 0.66 : 0.47) * fs, down = DEEP.test(visible) ? 0.22 * fs : 0.02 * fs;
     top = Math.min(top, base - up);
     bottom = Math.max(bottom, base + down);
     if (/\p{M}/u.test(r.t)) top = Math.min(top, base - 0.92 * fs);
@@ -170,12 +221,13 @@ const num = (v) => String(Math.round(v * 100) / 100);
  */
 export function labelSVG(runs, x, y, { size = 14, anchor = 'middle', color, cls = 'feyn-lab', weight } = {}) {
   let shift = 0;
+  const { dx: shifts } = layoutRuns(runs, size);
   const parts = runs.map((r, k) => {
     const target = r.s === -1 ? SUB * size : r.s === 1 ? -SUP * size : 0;
     const dy = target - shift; shift = target;
     const a = [];
-    const dx = italicCorrection(runs[k - 1], r) * size;
-    if (dx) a.push(`dx="${num(dx)}"`);
+    const dx = shifts[k];
+    if (Math.abs(dx) > 0.004) a.push(`dx="${num(dx)}"`);
     if (dy) a.push(`dy="${num(dy)}"`);
     if (r.over) a.push('text-decoration="overline"');
     if (r.s) a.push(`font-size="${num(size * SCRIPT)}"`);

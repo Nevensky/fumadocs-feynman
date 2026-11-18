@@ -71,10 +71,33 @@ export function sample(c, n) {
 export const offset = (p, o) => [p.x + p.ty * o, p.y - p.tx * o];
 
 // ---------- shapes that lines stop at ----------
+/** The two circles whose overlap is a lens: [[cx, cy], ...] and their radius. */
+export function lensCircles(shape) {
+  // a = half the thickness, c = half the length (tip to tip)
+  const a = (shape.horiz ? shape.h : shape.w) / 2, c = (shape.horiz ? shape.w : shape.h) / 2;
+  const R = (a * a + c * c) / (2 * a), k = R - a;
+  const centres = shape.horiz ? [[shape.x, shape.y + k], [shape.x, shape.y - k]] : [[shape.x + k, shape.y], [shape.x - k, shape.y]];
+  return { centres, R, a, c };
+}
+
+/** How far a lens reaches from its centre towards the unit direction (dx, dy): its support function. */
+export function lensReach(shape, dx, dy) {
+  const { R, a, c } = lensCircles(shape), k = R - a;
+  const across = Math.abs(shape.horiz ? dy : dx), along = Math.abs(shape.horiz ? dx : dy);
+  let best = 0;
+  // at s along the axis the lens is sqrt(R² − s²) − k thick on either side
+  for (let i = 0; i <= 96; i++) { const s = (c * i) / 96; best = Math.max(best, across * (Math.sqrt(Math.max(0, R * R - s * s)) - k) + along * s); }
+  return best;
+}
+
 export function inside(shape, p) {
   if (!shape) return false;
   const dx = p[0] - shape.x, dy = p[1] - shape.y;
   if (shape.kind === 'rect') return Math.abs(dx) < shape.w / 2 - 1e-6 && Math.abs(dy) < shape.h / 2 - 1e-6;
+  if (shape.kind === 'lens') {
+    const { centres, R } = lensCircles(shape);
+    return centres.every(([cx, cy]) => (p[0] - cx) ** 2 + (p[1] - cy) ** 2 < R * R - 1e-6);
+  }
   return dx * dx + dy * dy < shape.r * shape.r - 1e-6;
 }
 
@@ -88,14 +111,16 @@ export function trim(c, startShape, endShape) {
     }
     return (lo + hi) / 2;
   };
-  // each end is searched on its own half, so a self-loop (same shape at both ends) trims correctly
+  // a self-loop (a full circle on one shape) is searched half by half, one end in each half; any other curve over
+  // its whole length, so that a line whose middle lies inside a large shape still keeps the part outside it
+  const hs = c.type === 'circ' && Math.abs(c.span) > TAU - 1e-6 ? 0.5 : 1;
   if (startShape && inside(startShape, at(c, 0))) {
-    if (inside(startShape, at(c, 0.5))) return null;
-    t0 = bisect(0, 0.5, (t) => inside(startShape, at(c, t)));
+    if (inside(startShape, at(c, hs))) return null;
+    t0 = bisect(0, hs, (t) => inside(startShape, at(c, t)));
   }
   if (endShape && inside(endShape, at(c, 1))) {
-    if (inside(endShape, at(c, 0.5))) return null;
-    t1 = 1 - bisect(0, 0.5, (t) => inside(endShape, at(c, 1 - t)));
+    if (inside(endShape, at(c, 1 - hs))) return null;
+    t1 = 1 - bisect(0, hs, (t) => inside(endShape, at(c, 1 - t)));
   }
   if (t1 - t0 < 1e-3) return null;
   // remember which part of the original survived, so that its midpoint can still be found
@@ -106,6 +131,12 @@ export function trim(c, startShape, endShape) {
 
 /** Boundary point of a shape in screen direction (ux, uy) from its centre. */
 export function boundary(shape, ux, uy) {
+  if (shape.kind === 'lens') {
+    // along the ray from the centre: the last point still inside
+    let lo = 0, hi = Math.max(shape.w, shape.h);
+    for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2; if (inside(shape, [shape.x + ux * m, shape.y + uy * m])) lo = m; else hi = m; }
+    return [shape.x + ux * lo, shape.y + uy * lo];
+  }
   if (shape.kind === 'rect') {
     const sx = ux ? (shape.w / 2) / Math.abs(ux) : Infinity, sy = uy ? (shape.h / 2) / Math.abs(uy) : Infinity;
     const k = Math.min(sx, sy);

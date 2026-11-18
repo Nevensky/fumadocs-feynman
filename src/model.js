@@ -39,6 +39,10 @@ export const SHAPES = {
   dot: { kind: 'dot', r: 3, color: 'ink' },
   charge: { kind: 'dot', r: 3.4, color: 'ink' },
   current: { kind: 'dot', r: 3.6, color: 'c4' },
+  // couplings in their particle's hue: electron-phonon g (amber), dipole d·E (rose), spin σ·B (violet)
+  eph: { kind: 'dot', r: 3.6, color: 'phonon' },
+  dipole: { kind: 'dot', r: 3.6, color: 'photon' },
+  spin: { kind: 'dot', r: 3.6, color: 'c5' },
   none: { kind: 'none', r: 0 },
   point: { kind: 'none', r: 0 },
   disk: { kind: 'disk', r: 6.5, color: 'muted', trim: true },
@@ -50,7 +54,10 @@ export const SHAPES = {
   blob: { kind: 'blob', ru: 0.42, color: 'muted', trim: true },
   bubble: { kind: 'blob', ru: 0.42, color: 'electron', trim: true },
   box: { kind: 'box', wu: 0.9, hu: 1.3, color: 'muted', trim: true },
-  triangle: { kind: 'tri', ru: 0.46, color: 'muted', trim: true }
+  triangle: { kind: 'tri', ru: 0.46, color: 'muted', trim: true },
+  // a response function χ between two points: a lens, upright unless dir=right or left; w and h are its width and
+  // height on the page, as for a box (by default wu thick and hu long, tip to tip)
+  lens: { kind: 'lens', wu: 0.8, hu: 1.4, color: 'electron', trim: true }
 };
 
 /** Endpoint spec: 'a', 'a.nw', [x, y] (absolute, units) or { rel: [dx, dy] } (relative to the other end). */

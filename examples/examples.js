@@ -26,7 +26,20 @@ f at (5.5, 0) cross "cross"
 g at (0.4, -1.5) blob label="\\Sigma"
 h at (2, -1.5) bubble label="\\chi"
 i at (3.6, -1.5) box label="\\Gamma"
-j at (5.2, -1.5) triangle label="\\Lambda" dir=left` },
+j at (5.2, -1.5) triangle label="\\Lambda" dir=left
+k at (0, -3) charge "charge"
+l at (1.1, -3) eph "eph"
+m at (2.2, -3) dipole "dipole"
+n at (3.3, -3) spin "spin"
+o at (4.8, -3) lens label="\\chi" dir=right` },
+  { group: 'Vocabulary', id: 'labelled-vertices', title: 'Vertices with their matrix elements',
+    note: 'Any vertex can be labelled once it exists, a template’s too: write its name, then a label and where it goes (pos=), a shape or a colour. The names are on the By hand tab, and grid shows them. Charge vertices carry ρ, current vertices j; eph, dipole and spin are the other couplings, each in its particle’s hue.',
+    source: `bubble vertex=charge ext=coulomb extLabel=v
+a0 "\\rho_{n\\mathbf{k},m\\mathbf{k}+\\mathbf{q}}(\\mathbf{G})" pos=sw
+b0 "\\rho^*_{n\\mathbf{k},m\\mathbf{k}+\\mathbf{q}}(\\mathbf{G}')" pos=se
+| bubble vertex=current ext=photon extLabel=D
+a0 "j_{n\\mathbf{k},m\\mathbf{k}+\\mathbf{q}}(\\mathbf{G})" pos=sw
+b0 "j^*_{n\\mathbf{k},m\\mathbf{k}+\\mathbf{q}}(\\mathbf{G}')" pos=se` },
   { group: 'Vocabulary', id: 'grid', title: 'Drafting grid',
     note: 'A line that says grid draws the unit grid and the name of every vertex. Positions are (x, y) in units of 40 px, y up; the main line sits on y = 0, where an equation sets = and +. Delete the line when the diagram is done.',
     source: `grid
@@ -73,6 +86,55 @@ caption "GW"` },
 caption "rainbow (non-crossing)"
 | sigma2 crossed
 caption "crossed (vertex correction)"` },
+  { group: 'Self-energies', id: 'standing', title: 'Fock and GW, standing up',
+    note: 'vertical stands a self-energy up: the interaction runs straight from the lower vertex to the upper one, and the electron arcs round on the right, in at the bottom and out at the top (dir=left reverses it). flow puts arrows on the interaction, along the momentum it carries.',
+    source: `fock vertical flow legLabel="n\\mathbf{k}" G="m,\\mathbf{k}+\\mathbf{q}" v="v(\\mathbf{q})"
+| gw vertical legLabel="n\\mathbf{k}"` },
+  { group: 'Self-energies', id: 'screened-exchange', title: 'The correlation self-energy: a response function inside the interaction',
+    note: 'inner=chi splits the interaction around a response function χ, so that it reads v χ v = W − v, the correlation part of the screened interaction (with the plain Fock diagram it makes GW). Its points are c and d, the lens is X; here every point carries its plane-wave label.',
+    source: `fock vertical inner=chi flow legLabel="n,\\mathbf{K}" G="m,\\mathbf{K}+\\mathbf{Q}" v="v(\\mathbf{Q})" vtop="v(\\mathbf{Q}+\\mathbf{G}'_\\parallel)" chi="\\chi(\\omega-E_{m\\mathbf{K}+\\mathbf{Q}})"
+a "G_z" pos=below
+c "G_{z1}" pos=right
+d "G_{z2}" pos=right
+b "G'_z" pos=above` },
+  { group: 'Self-energies', id: 'rpa-exchange', title: 'A polarization bubble inside, and a ladder inside that',
+    note: 'inner=bubble puts the polarization bubble itself into the interaction, two electron lines from c to d: the first term of the RPA screening. ladder= adds W rungs inside it, the electron–hole attraction that excitons come from.',
+    source: `fock vertical inner=bubble
+| fock vertical inner=bubble ladder=2 rungLabel=W` },
+  { group: 'Self-energies', id: 'hartree-fock', title: 'Hartree and Fock, their points labelled',
+    note: 'The Hartree tadpole and the Fock exchange with the points r and r′ written on their vertices; dir=left runs the electron right to left.',
+    source: `hartree G="-iG(\\mathbf{r}';\\mathbf{r}',0^+)" legLabel=n
+a "\\mathbf{r}" pos=below
+b "\\mathbf{r}'" pos=sw
+caption "H"
++ fock vertical dir=left G=m legLabel=n
+a "\\mathbf{r}" pos=below
+b "\\mathbf{r}'" pos=above
+caption "F"` },
+
+  // ---------------- Hedin's expansion and GT ----------------
+  { group: 'Hedin’s expansion and GT', id: 'hedin3', title: 'Hedin’s self-energy to third order in W',
+    note: 'Müller, Blügel and Friedrich, PRB 100, 045130 (2019), Fig. 1. First row: GW; the second-order screened exchange (the first vertex correction, also called G3W2); the two direct third-order diagrams, a particle–hole and a particle–particle ladder closed by G: the lowest terms of the two T-matrix self-energies beyond Hartree and GW (their one- and two-rung terms, the tadpole and the second-order direct diagram, are already there, which is why the paper’s T starts at third order; its GT keeps the particle–hole one, with opposite spins on its rails). Second row: the four third-order exchange diagrams. G and W are the full propagators, so the lines are double: the expansion is in G and W, which is why no diagram carries a self-energy insertion (no rainbow). arcs numbers the vertices from the left and puts each W above or below the line; dir=left runs the electron right to left, as in the paper; a line that starts with `\\\\` begins a new row, as in TeX.',
+    source: `gw G="" W="" dir=left
+| arcs above="13 24" dressed dir=left
+| gt ladder spin=false dressed dir=left
+| gt ladder pp spin=false dressed dir=left
+\\\\ arcs above="15 24" below="36" dressed dir=left
+| arcs above="13 46" below="25" dressed dir=left
+| arcs above="26 35" below="14" dressed dir=left
+| arcs above="14 36" below="25" dressed dir=left` },
+  { group: 'Hedin’s expansion and GT', id: 'gt-gw', title: 'GT drawn like GW: the magnon in place of the plasmon',
+    note: 'Fig. 2 of the same paper. W carries plasmons (and electron–hole pairs); the T matrix, a ladder of W between an electron and a hole of opposite spin, carries magnons (spin waves and Stoner excitations). Read as in GW, with T as the boson, the electron that emits one flips its spin (↓ on the base line) and flips back when it absorbs it; following the arrows, the ↑ line runs on along the outer rail and the ↓ base line closes a loop with the inner rail. Single lines: the paper evaluates GT with the Kohn–Sham G.',
+    source: `gw dressed=false G="\\uparrow" dir=left
+| gt n=5 label="GT" dir=left` },
+  { group: 'Hedin’s expansion and GT', id: 'gt-bse', title: 'The T matrix in the ladder approximation',
+    note: 'Fig. 3: T starts at third order in W, T = WKWKW + WKT with K(12,34) = iG(13)G(42) the free electron–hole pair, and GT closes it with the G from 4 back to 2, Σ(13) = −i T(12,34) G(24). (The paper’s Eq. 1 prints G(42); with its K the line that closes the loop is G(24), as its Fig. 3 draws.) Lines joined only by W carry opposite spins. The violet box is the T matrix.',
+    source: 'gt-bse dir=left' },
+  { group: 'Hedin’s expansion and GT', id: 'gt-forms', title: 'GT as a box and as a ladder; the particle–particle T matrix',
+    note: 'form = arch (the default), box or ladder. For a particle–particle T matrix (pp) the two rails run the same way, and the line that closes it runs against both: a hole when the pair is two electrons, an electron when it is two holes. A pp T matrix carries no magnon.',
+    source: `gt box
+| gt ladder
+| gt pp` },
 
   // ---------------- Dyson equations ----------------
   { group: 'Dyson equations', id: 'dyson-g', title: 'Electron', source: 'dyson' },
@@ -97,15 +159,56 @@ caption "crossed (vertex correction)"` },
     source: 'exciton charge n=2 bubbles=2 link=coulomb linkLabel="\\bar{v}" ext=coulomb extLabel=v' },
   { group: 'Bubbles and excitons', id: 'rpa', title: 'Plain RPA chain', source: 'rpa n=3' },
 
+  // ---------------- trions and biexcitons ----------------
+  { group: 'Trions and biexcitons', id: 'ladders-n', title: 'Exciton, trion, biexciton: ladders of two, three and four lines',
+    note: 'The exciton is a bound state of the two-line ladder, the screened direct part (W) of the Bethe–Salpeter kernel; its exchange part v̄, in which the pair annihilates into a bare Coulomb line, is not drawn. A trion adds a third line, a biexciton a fourth. The rungs (W) now join every pair of lines, not only neighbours: a rung that skips a line passes over it, and the gap shows it. Arrows run with the electrons and against the holes, so one W serves for all pairs: e–h attracts, e–e and h–h repel.',
+    source: `nbody
+caption "exciton"
+| trion
+caption "trion X^{−}"
+| biexciton
+caption "biexciton"` },
+  { group: 'Trions and biexcitons', id: 'trions', title: 'Negative and positive trions',
+    note: 'rungs lists the columns left to right as pairs of lines, counted from the top: 13 joins the two electrons (or the two holes) over the line between them. Not drawn: exchange. Two identical particles (same spin and valley) also need the same ladders with the outgoing ends of their two lines swapped, each with a minus sign; and an electron–hole pair that can annihilate (its electron has the spin of the missing one) also has the exciton’s exchange term v̄. Which exchange terms a trion has depends on its spins and valleys, and they, electron–hole and electron–electron together, set its fine structure.',
+    source: `trion
+caption "X^{−} = e h e"
+| trion positive
+caption "X^{+} = h e h"` },
+  { group: 'Trions and biexcitons', id: 'biexciton', title: 'Biexciton: two electrons and two holes, every pair interacting',
+    note: '12+34 puts two rungs in one column. Rungs 12 and 34 bind each exciton. Between the excitons, 13 and 24 (electron–electron, hole–hole) repel and 23 and 14 attract; at first order they nearly cancel. Summed to all orders, with each electron also correlating with the other hole, they bind the two excitons, as in H₂, when the two electrons (and the two holes) are not in the same spin and valley state: a spin singlet within one valley, or two different valleys whatever the spins. For two electrons of the same spin and valley the exchange diagrams, not drawn, give Pauli repulsion instead.',
+    source: 'biexciton' },
+  { group: 'Trions and biexcitons', id: 'nbody', title: 'Your own: an exciton scattering off an electron',
+    note: 'nbody takes any lines (e or h, from the top) and any rungs. Here an exciton (lines 1 and 2) meets the electron on line 3, which attracts its hole (23) and repels its electron (13), and goes on.',
+    source: 'nbody lines="e h e" rungs="12 12 23 13 12 12"' },
+
   // ---------------- two-particle ----------------
   { group: 'Two-particle', id: 'ladder-ph', title: 'Particle–hole ladder', source: 'ladder n=4 top=G bottom=G' },
   { group: 'Two-particle', id: 'ladder-pp', title: 'Particle–particle ladder with phonons', source: 'ladder n=3 pp rung=phonon rungLabel=F' },
   { group: 'Two-particle', id: 'crossed', title: 'Maximally crossed (Cooperon)', source: 'crossed n=4' },
-  { group: 'Two-particle', id: 'vertex', title: 'Vertex corrections', source: `vertex-correction ext=photon rung=phonon rungLabel=F
-| vertex-correction ext=coulomb rung=screened rungLabel=W` },
   { group: 'Two-particle', id: 'bse', title: 'Bethe–Salpeter equation', source: 'bse' },
   { group: 'Two-particle', id: 'tmatrix', title: 'T-matrix', source: 'tmatrix' },
   { group: 'Two-particle', id: 'parquet', title: 'Parquet decomposition', source: 'parquet' },
+
+  // ---------------- vertex corrections ----------------
+  { group: 'Vertex corrections', id: 'vertex', title: 'First order: a phonon or W across the vertex',
+    note: 'Left, the electron–photon vertex dressed by a phonon; right, the Coulomb vertex dressed by W. Migdal’s theorem, which makes phonon vertex corrections small, holds at large momentum transfer (v_F q ≫ ω); a photon brings q ≈ 0, where it fails. There the Ward identity fixes the charge vertex, Γ = 1 + λ, as large as the self-energy’s renormalization, but not the current vertex a photon couples to: its phonon correction carries the cosine of the scattering angle, vanishes for isotropic coupling, and in transport turns the quasiparticle lifetime into the transport one.',
+    source: `vertex-correction ext=photon rung=phonon rungLabel=F
+| vertex-correction ext=coulomb rung=screened rungLabel=W` },
+  { group: 'Vertex corrections', id: 'vertex2', title: 'Second order, both W across the vertex: ladder and crossed',
+    note: 'n sets the number of interactions across the vertex; crossed crosses them. Hedin’s vertex has two more second-order diagrams of this kind, in which one W crosses the vertex and the other sits on one leg, crossing it; put into Σ = iGWΓ, the four give the four third-order exchange diagrams of Hedin’s expansion.',
+    source: `vertex-correction n=2 ext=screened rung=screened rungLabel=W
+caption "ladder"
+| vertex-correction n=2 crossed ext=screened rung=screened
+caption "crossed"` },
+  { group: 'Vertex corrections', id: 'hedin-vertex', title: 'Hedin’s vertex: Γ = 1 + (δΣ/δG) GGΓ',
+    note: 'The Bethe–Salpeter equation for the vertex function. With Σ = iGW, δΣ/δG = iW + iG δW/δG. Dropping δW/δG leaves Γ = 1 + iWGGΓ, whose first iteration is the first-order correction above; the δW/δG term is where the direct (closed-ladder) diagrams of Hedin’s expansion come from.',
+    source: 'hedin-vertex' },
+  { group: 'Vertex corrections', id: 'gw-gamma', title: 'The vertex in Σ and P: Σ = iGWΓ, P = −iGGΓ',
+    note: 'gamma= on gw and bubble closes the diagram with Hedin’s vertex instead of a bare one; Γ = 1 gives back GW and the RPA bubble. In Σ(12) = i G(13) W(1⁺4) Γ(32;4) the electron enters through Γ and leaves at the bare vertex.',
+    source: `gw gamma="\\Gamma"
+caption "\\Sigma = iGW\\Gamma"
+| bubble gamma="\\Gamma" top=G bottom=G dressed ext=screened
+caption "P = −iGG\\Gamma"` },
 
   // ---------------- hand-written ----------------
   { group: 'Written by hand', id: 'hedin-baym', title: 'Hedin–Baym: W = Wᵉ + Wᵉ χⁱᵒⁿ Wᵉ',
