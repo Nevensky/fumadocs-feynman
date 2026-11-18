@@ -5,6 +5,12 @@ export interface RemarkFeynmanOptions {
   component?: string;
   /** Site-wide line-style names, used when validating and when writing a block out by hand. */
   styles?: Record<string, string>;
+  /**
+   * The site's px per unit, when the component is given one (createFeynman({ unit })): pass the same here, for some
+   * templates size themselves by it, and so must the build's check and the By hand tab. A fence's unit= wins when it
+   * is a positive number; one that is not is left out, so that the component keeps the site's too.
+   */
+  unit?: number;
   /** Fail the build on a diagram error instead of warning. */
   strict?: boolean;
   /** Check diagrams at build time (default true). */

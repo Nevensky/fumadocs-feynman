@@ -73,8 +73,9 @@ const groupNav = groups.map((g) => `<a href="#${slug(g)}">${esc(g)}</a>`).join('
 
 const statements = [
   ['vertex', 'a at 0,0 · S at 2,0 blob "\\Sigma" · K at 1,0 box label="K"'],
-  ['line', 'a -> b fermion "G_0" · a <- b … · a -- b phonon'],
-  ['options', 'bend=0.4 · dressed · side=right · mom="\\mathbf{q}" · arrow=end · color=teal'],
+  ['line', 'a -> b fermion "G_0" · a <- b … · a -- b phonon (phonons, photons and interactions take no arrow)'],
+  ['options', 'bend=0.4 · dressed · side=right · arrow=end · color=teal'],
+  ['momentum', 'mom="\\mathbf{q}" (an arrow beside the line, along its written direction) · momdir=back · momside=left|right · mompos=0.7'],
   ['inline point', '(-0.6,0) -- a fermion · +(0.6,0) is relative'],
   ['anchor', 'K.nw · K.se · S.e · S.30'],
   ['label a vertex', 'a "\\rho_{n\\mathbf{k},m\\mathbf{k}+\\mathbf{q}}(\\mathbf{G})" pos=below · a current · works on a template\u2019s vertices too'],
@@ -394,7 +395,7 @@ function replaceSource(text) {
 $('#pg-expand').addEventListener('click', () => {
   try {
     if (!templatesIn(src.value).length) { status.textContent = 'This block uses no template: it is already written by hand.'; return; }
-    replaceSource(expand(src.value));
+    replaceSource(expand(src.value, { unit: +unit.value }));
     presets.forEach((b) => b.setAttribute('aria-pressed', 'false'));
     status.textContent = 'Written out by hand: the same diagram, vertex by vertex (undo brings the template back).';
   } catch { status.textContent = 'Fix the errors first, then write the block out by hand.'; }
@@ -404,7 +405,9 @@ document.querySelectorAll('[data-src]:not(.presets button)').forEach((b) => b.ad
   // from a card, load what its source tabs show
   const shown = b.closest('.card')?.querySelector('.srcs [data-pane]:not([hidden])');
   const hand = b.dataset.hand && shown?.dataset.pane === 'hand';
-  load(hand ? b.dataset.hand : b.dataset.src, null);
+  // the card's By hand is written for 40 px per unit; at another scale, write it out for that one (a template may
+  // size itself by the unit)
+  load(hand ? (+unit.value === 40 ? b.dataset.hand : expand(b.dataset.src, { unit: +unit.value })) : b.dataset.src, null);
   document.querySelector('.pg').scrollIntoView({ block: 'start' });
   src.focus({ preventScroll: true });
 }));

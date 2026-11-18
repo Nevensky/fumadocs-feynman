@@ -54,9 +54,10 @@ It puts the theme stylesheet in `<head>` once, through React 19's `<style href p
 import it yourself, add `@import 'fumadocs-feynman/style.css';` to `global.css` and pass `injectStyle={false}`.
 
 For site-wide notation, make your own component with `createFeynman({ styles: { D: 'photon', F: 'phonon dressed' } })`,
-and pass the same `styles` to `remarkFeynman({ styles })` so that build-time validation knows them.
+and pass the same `styles` to `remarkFeynman({ styles })` so that build-time validation knows them. The same goes for
+a site-wide `unit`: some templates size themselves by it, so the build's check and the By hand tabs need it too.
 
-Plugin options: `{ lang = 'feynman', component = 'Feynman', styles, strict = false, validate = true, source = false }`.
+Plugin options: `{ lang = 'feynman', component = 'Feynman', styles, unit, strict = false, validate = true, source = false }`.
 A diagram error becomes a build warning that points at the line in the `.mdx` file, or a build error with
 `strict: true`. On the page, an error box lists the errors with line numbers. The fence meta can set `caption="…"`,
 `title="…"` (the accessible description), `unit=36` and `id="…"`, and the bare word `source` (below).
@@ -75,11 +76,11 @@ fock vertical
 ```
 ````
 
-The expansion is `expand(source, { styles })` from the package, and `templatesIn(source)` lists the templates a
-block uses. `render(expand(src))` draws the same picture as `render(src)`, so the By hand version is a starting point
-when no template quite fits: copy it and change what you need. The block's own `style` statements and `title` are
-kept; the site's `styles` are known while expanding and left to the site. The gallery's playground does the same
-with **Write out by hand**.
+The expansion is `expand(source, { styles, unit })` from the package, and `templatesIn(source)` lists the templates
+a block uses. `render(expand(src))` draws the same picture as `render(src)` at the same unit, so the By hand version
+is a starting point when no template quite fits: copy it and change what you need. The block's own `unit`, `style`
+statements and `title` are kept; the site's `styles` and `unit` (the fence's `unit=`, or the plugin's) are known while
+expanding and left to the site. The gallery's playground does the same with **Write out by hand**.
 
 ## The language
 
@@ -91,7 +92,7 @@ which the operators of an equation are set.
 | --- | --- |
 | vertex | `a at (0, 0)` · `S at (2, 0) blob "\Sigma"` · `K at (1, 0) box label="K" w=1 h=1.4` |
 | label or restyle a vertex | `a "\rho_{n\mathbf{k},m\mathbf{k}+\mathbf{q}}(\mathbf{G})" pos=below` · `a current color=c5`: an existing vertex, a template's too, takes a label, shape or options without moving |
-| line | `a -> b fermion "G_0"` (arrow a→b) · `a <- b ...` (b→a) · `a -- b phonon` (no arrow) |
+| line | `a -> b fermion "G_0"` (arrow a→b) · `a <- b ...` (b→a) · `a -- b phonon` (no arrow). Phonon, photon, gluon, Coulomb, screened and impurity lines take no arrow: an arrow marks a fermion; `mom="q"` draws a momentum beside a line |
 | chain | `a -> b -> c fermion` |
 | inline points | `(-0.6,0) -- a fermion` · `+(0.6,0)` is relative to the other end |
 | anchors | `K.nw`, `K.se`, … corners of a box or compass points of a blob; `S.30` is an angle |
@@ -141,8 +142,11 @@ a -- b phonon dressed bend=0.42 above "F"  a -- b phonon dressed bend=0.42 "F"
 Line options: `above` / `below` (a side of the page), `bulge=1.2` (an arc's height in units, with `above` or
 `below`), `arc` (half circle), `bend` (0.35) or `bend=0.42` (height ÷ distance), `side=in|out` (label inside or
 outside an arc or loop), `side=left|right` (along the written direction, for steep lines), `dist=…` (label
-distance in px), `pos=0.3` (label position along the line), `mom="\mathbf{q}"` (crystal-momentum arrow beside the
-line, with `momside` and `momdir=back`), `dressed` / `bare`, `heavy` / `thin`, `arrow=end|start|none`,
+distance in px), `pos=0.3` (label position along the line), `mom="\mathbf{q}"` (a grey momentum arrow beside the
+line, running along the written direction: `momdir=back` turns it round, `momside=left|right` puts it on that side
+of the written direction, opposite the label by default (on the label's side, move one of them with `pos=` or
+`mompos=`), and `mompos=0.7` moves it along the line, beside the label by default; on a loop it goes outside, a sixth
+of the way round from a label outside), `dressed` / `bare`, `heavy` / `thin`, `arrow=end|start|none`,
 `arrowpos=0.3` (where the arrow sits, as a fraction along the line), `marker=cross|none`,
 `color=teal`, `width`, `amp`, `wl`, `dash="5 4"`, `faint`, `over` (the line passes over the lines written before
 it, so write it after the lines it should cross: a solid or wavy line gets a gap, a dashed one keeps its own gaps,
@@ -174,10 +178,10 @@ subscript right after a superscript or a prime goes under it, as in TeX: `\rho^*
 | `propagator` | one line | `style=fermion label length=1.8 dressed dir=right` |
 | `dyson` | full = bare + bare · Σ · full | `style=fermion full=G bare=G^0 self=\Sigma color=muted dir` |
 | `sigma` | self-energy blob with stubs | `label=\Sigma color r` |
-| `fan-migdal` | electron line spanned by a phonon arc; `vertical` stands it up | `dressed phonon=phonon vertex=dot G F dir width line legLabel`, and the standing options below (inner: Π) |
+| `fan-migdal` | electron line spanned by a phonon arc; `vertical` stands it up | `dressed phonon=phonon vertex=dot G F mom momdir momside dir width line legLabel`, and the standing options below (inner: Π) |
 | `debye-waller` | phonon loop on a hatched vertex | `dressed phonon F vertexLabel=g^{DW}` |
-| `gw` | GW self-energy; `gamma="\Gamma"` makes it Σ = iGWΓ, with Γ where the electron enters; `vertical` stands it up | `G=G W=W vertex dir dressed width=2.8 gamma gcolor=c4 line legLabel`; standing: `vertical height flow` |
-| `fock` | exchange self-energy; `vertical` stands it up, `inner=chi\|bubble` puts a diagram inside the interaction | `G=G^0` (G with `dressed`) `v=v vertex=dot dressed line dir width=2.8 legLabel`, and the standing options below (inner: χ) |
+| `gw` | GW self-energy; `gamma="\Gamma"` makes it Σ = iGWΓ, with Γ where the electron enters; `vertical` stands it up | `G=G W=W mom momdir momside vertex dir dressed width=2.8 gamma gcolor=c4 line legLabel`; standing: `vertical height` |
+| `fock` | exchange self-energy; `vertical` stands it up, `inner=chi\|bubble` puts a diagram inside the interaction | `G=G^0` (G with `dressed`) `v=v mom momdir momside vertex=dot dressed line dir width=2.8 legLabel`, and the standing options below (inner: χ) |
 | `hartree` | tadpole self-energy | `G=G^0` (G with `dressed`) `v=v interaction=coulomb dressed legLabel` |
 | `sigma2` | second order: `rainbow`, `crossed`, `sequential` | `type boson=phonon dressed label` |
 | `arcs` | one electron line with interaction arcs above and below it, such as the exchange diagrams of Hedin's expansion | `above below` (pairs of vertex numbers; with neither, `above="13 24"`) `boson=screened label spacing=0.9 dressed dir` |
@@ -217,16 +221,37 @@ Some templates in more detail:
   middle of the ladder there instead, which is what `gt-bse` does. `label` writes a name inside the arch.
 - **Self-energies standing up.** `fock`, `gw` and `fan-migdal` take `vertical`: the interaction runs straight
   from the lower vertex `a` to the upper one `b`, and the electron arcs round on the right, in at the bottom and out
-  at the top (`dir=left` reverses it). `flow` draws the interaction's arrows downwards, along the momentum it
-  carries; `legLabel` labels the external electron, `height` sets the distance from `a` to `b`. `fock` and
-  `fan-migdal` take `inner=`: `chi` splits the interaction around a response-function lens `X` (labelled with
-  `chi=`, χ or Π by default), `bubble` around a polarization bubble of two electron lines, with `ladder=` rungs
-  (`rung`, `rungLabel`) inside it. The inner diagram runs from `c` (below) to `d` (above), which take the vertex
+  at the top (`dir=left` reverses it). The interaction carries no arrow: its label says which momentum it carries,
+  and `mom=` draws that momentum as an arrow beside it (the next item). `legLabel` labels the external electron,
+  `height` sets the distance from `a` to `b`. `fock` and `fan-migdal` take `inner=`: `chi` splits the interaction
+  around a response-function lens `X` (labelled with `chi=`, χ or Π by default), `bubble` around a polarization
+  bubble of two electron lines, with `ladder=` rungs (`rung`, `rungLabel`) inside it.
+  The inner diagram runs from `c` (below) to `d` (above), which take the vertex
   kind of `a` and `b` when it is one of the dots (`charge`, `current`, `eph`, ...), and `vtop=` labels the upper
   piece of the interaction when it differs from the lower one. `fan-migdal vertical dressed` draws the dressed
   phonon F; around an inner diagram its pieces stay F⁰, because F already holds every Π insertion (`F=` and `vtop=`
   set other labels). These standing options are errors where they would do nothing: without `vertical`, and
-  `ladder`, `rung` and `rungLabel` without `inner=bubble`, `chi` and `vtop` without `inner`.
+  `ladder`, `rung` and `rungLabel` without `inner=bubble`, `chi`, `vtop` and `momtop` without `inner`.
+- **The momentum through the interaction.** `fock`, `gw` and `fan-migdal` take `mom="\mathbf{q}"`, lying down or
+  standing up: a grey arrow beside the interaction, never on it, with the momentum as its label. It points towards
+  the vertex where the electron enters, the way q runs when the inner electron carries k+q, as in
+  Σ(k) = i Σ_q v(q) G(k+q); `momdir=back` turns it round, for k−q. The arrow sits inside, between the interaction and
+  the electron, opposite the interaction's label, where a short momentum such as q or Q fits. `momside=out` puts it
+  outside, for a longer one such as Q+G′∥, and the label makes way: lying down it moves inside the arc; standing up
+  it stays outside, low on a single line with the arrow above it, or, around an inner diagram, near `a` and `b`
+  with the arrows nearer the middle. Standing up, `mom=` lengthens the interaction to 2.8 units, or each piece
+  around an inner diagram to 1.45 (1.6 with `momside=out`), so that the arrow and its label clear the electron; a
+  `height=` shorter than 2.6, or than 1.35 a piece, is an error. These are the lengths at 40 px per unit and up:
+  below 40, as the arrow and its label keep their size in px, they grow by 40/unit, and so do the inner diagram and,
+  lying down, the default width (the legs do not); the shortest `height=` accepted grows likewise, and a `height=` or
+  `width=` the block gives is kept as written.
+  With `inner=`, both pieces of the interaction carry the arrow, and `momtop=` labels the upper one when its
+  momentum differs, as `vtop=` does the label. `momdir`, `momside` and `momtop` without `mom` are errors.
+  In the By hand form the interaction is a line written from `a` to `b` (from the tip of Γ with `gamma=`; upwards
+  when standing), and a line's arrow runs along it, from its first end to its second, unless `momdir=back`. So an
+  arrow towards `a` (or Γ) is written `momdir=back`, and one towards `b` with none; `momside=out` becomes
+  `momside=left` (`momside=right` for `gw gamma= dir=left`, the mirror image), with `side=in` lying down, or `pos=`
+  and `mompos=` standing up.
 - **`nbody`** draws a ladder of any number of lines, given from the top as `e` (electron, arrow along `dir`) and `h`
   (hole, arrow against it), with `rungs` given column by column as pairs of line numbers: `13` joins lines 1 and 3
   and passes over line 2; `12+34` puts two rungs in one column. `trion` and `biexciton` are ready-made ladders of
@@ -247,6 +272,7 @@ import { render, renderSVG, expand, Term, renderModel } from 'fumadocs-feynman';
 const { html, svg, errors } = render('ladder n=4 pp');
 expand('ladder n=4 pp'); // the same diagram as plain statements: vertices, lines, texts
 expand('gw\nb -- (3,1) D', { styles: { D: 'photon' } }); // the site's styles are known, and not written out
+expand('fock vertical mom=q', { unit: 30 }); // as is the site's unit, which a template may size itself by
 const t = new Term();
 t.node('a', 0, 0); t.node('b', 2, 0);
 t.edge('a', 'b', 'fermion', { label: 'G' }).edge('a', 'b', 'phonon', { bend: 0.4 });

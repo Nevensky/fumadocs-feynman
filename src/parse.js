@@ -94,7 +94,7 @@ export function tokenize(stmt) {
 }
 
 // ---------- option checking ----------
-const EDGE_KEYS = ['label', 'side', 'dist', 'pos', 'bend', 'bulge', 'dir', 'size', 'mom', 'momside', 'momdir', 'color', 'width', 'amp', 'wl', 'dash', 'arrow', 'arrowpos', 'marker', 'opacity'];
+const EDGE_KEYS = ['label', 'side', 'dist', 'pos', 'bend', 'bulge', 'dir', 'size', 'mom', 'momside', 'momdir', 'mompos', 'color', 'width', 'amp', 'wl', 'dash', 'arrow', 'arrowpos', 'marker', 'opacity'];
 const NODE_KEYS = ['label', 'pos', 'color', 'r', 'w', 'h', 'dir', 'size'];
 const TEXT_KEYS = ['size', 'color', 'anchor'];
 // keys of the unreleased draft: an error that names the replacement, never silently ignored
@@ -128,6 +128,8 @@ function edgeOption(key, v, opts) {
     return `side=${v}: side is left or right of the written direction, or in or out of a curve${w ? `; to put the label ${w} a straight line, write the bare word ${w}` : ''}`;
   }
   if (key === 'momside' && !['left', 'right'].includes(v)) return `momside=${v}: momside is left or right of the written direction`;
+  if (key === 'momdir' && v !== 'back') return `momdir=${v}: the momentum arrow runs along the written direction, and momdir=back turns it round`;
+  if (key === 'mompos' && !(typeof v === 'number' && v >= 0 && v <= 1)) return `mompos=${v}: where the momentum arrow sits, as a fraction along the line from 0 to 1`;
   if (key === 'pos' && !(typeof v === 'number' && v >= 0 && v <= 1)) {
     const w = PAGE_HINT[v];
     return `pos=${v}: on a line, pos= is a fraction along it, from 0 to 1${w ? `; to put the label ${w} the line, write the bare word ${w}` : ''}`;
@@ -209,7 +211,7 @@ function styleDefs(map, errors) {
 export function parse(source, options = {}) {
   const errors = [];
   const styles = styleDefs(options.styles, errors);
-  let unit = options.unit;
+  let unit = options.unit, unitGiven = false;
   let grid = !!options.grid;
   const isStyle = (w) => !!(LINE_STYLES[w] || STYLE_ALIASES[w] || styles[w]);
 
@@ -248,7 +250,7 @@ export function parse(source, options = {}) {
         return false;
       }
       if (t[0]?.k === 'word' && t[0].v === 'unit') {
-        if (t[1]?.k === 'num' && t[1].v > 0) unit = t[1].v; else errors.push({ message: 'unit expects a positive number (px per unit)', line: s.line });
+        if (t[1]?.k === 'num' && t[1].v > 0) { unit = t[1].v; unitGiven = true; } else errors.push({ message: 'unit expects a positive number (px per unit)', line: s.line });
         return false;
       }
       if (t[0]?.k === 'word' && t[0].v === 'style') {
@@ -276,7 +278,8 @@ export function parse(source, options = {}) {
 
   // 3. build the terms
   const items = [];
-  const ctx = { errors, isStyle, templates: [] };
+  // templates learn the unit: some keep room, in units, for labels whose size is fixed in px
+  const ctx = { errors, isStyle, templates: [], unit: unit || 40 };
   for (const g of groups) {
     if (!g.stmts.length) {
       if (g.op && items.length === 0 && groups.indexOf(g) === 0) continue;
@@ -297,7 +300,7 @@ export function parse(source, options = {}) {
       equation.terms.forEach((t, i) => items.push({ op: i === 0 ? g.op || equation.ops[0] : equation.ops[i], br: i === 0 && !!g.br, ...(t.ellipsis ? { ellipsis: true } : { term: t }) }));
     } else items.push({ op: g.op, br: !!g.br, term });
   }
-  return { items, styles, unit, grid, errors, templates: [...new Set(ctx.templates)] };
+  return { items, styles, unit, unitGiven, grid, errors, templates: [...new Set(ctx.templates)] };
 }
 
 function statement(term, s, ctx) {
@@ -443,7 +446,7 @@ function statement(term, s, ctx) {
   if (w0 && TEMPLATES[w0]) {
     const tpl = TEMPLATES[w0];
     ctx.templates.push(w0);
-    const params = { ...tpl.params };
+    const params = { ...tpl.params }, given = new Set();
     for (const x of t.slice(1)) {
       let key, v;
       if (x.k === 'word' && tpl.flags?.[x.v]) { Object.assign(params, tpl.flags[x.v]); continue; }
@@ -453,13 +456,14 @@ function statement(term, s, ctx) {
       else { err(`${w0}: unexpected "${x.v ?? x.k}"`); continue; }
       if (!(key in params)) { err(`${w0}: unknown option "${key}" (options: ${Object.keys(tpl.params).join(', ')})`); continue; }
       const def = tpl.params[key];
+      given.add(key);
       if (typeof def === 'number') { const n = Number(v); if (!isFinite(n)) { err(`${w0}: ${key} expects a number`); continue; } params[key] = n; }
       else if (typeof def === 'boolean') params[key] = v === true || v === 'true';
       else if (v === true) { err(`${w0}: ${key} expects a value, as in ${key}=...`); continue; }
       else params[key] = String(v);
     }
     let out;
-    try { out = tpl.build(params); } catch (e) { return err(`${w0}: ${e.message}`); }
+    try { out = tpl.build(params, { unit: ctx.unit, given }); } catch (e) { return err(`${w0}: ${e.message}`); }
     if (out instanceof Equation) return out;
     // merge a diagram template into the current term (its named vertices can be referenced afterwards);
     // its invented points are renumbered so that they cannot replace points the term already has

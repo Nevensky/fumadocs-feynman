@@ -23,7 +23,7 @@ const value = (v) => (typeof v === 'number' ? num(v) : typeof v === 'boolean' ? 
 const BARE_OPS = new Set(['=', '+', '−', '-', '×', '·', '≈', '≃', '≡', '∝', '→', '⇒', ':=']);
 
 const EDGE_FLAGS = ['dressed', 'bare', 'heavy', 'thin', 'faint', 'over', 'loop', 'cw'];
-const EDGE_VALUES = ['bend', 'bulge', 'side', 'dist', 'pos', 'dir', 'size', 'mom', 'momside', 'momdir', 'color', 'width', 'amp', 'wl', 'dash', 'opacity', 'marker'];
+const EDGE_VALUES = ['bend', 'bulge', 'side', 'dist', 'pos', 'dir', 'size', 'mom', 'momside', 'momdir', 'mompos', 'color', 'width', 'amp', 'wl', 'dash', 'opacity', 'marker'];
 const NODE_VALUES = ['pos', 'color', 'r', 'w', 'h', 'dir', 'size'];
 
 function endpoint(term, ep) {
@@ -92,13 +92,14 @@ function termLines(term, styles) {
  */
 export function expand(source, options = {}) {
   // the site's styles (as given to the remark plugin) are known while expanding, but not written out
-  const doc = parse(source, { styles: options.styles });
+  // the site's unit too (a fence's unit=), which a template may size itself by, as a render would
+  const doc = parse(source, { styles: options.styles, unit: options.unit });
   // the errors a render would report too (an unknown vertex is only found when the lines are drawn)
   const errors = [...doc.errors];
   for (const it of doc.items) if (it.term) renderTerm(it.term, { unit: doc.unit || 40, uid: 'expand', styles: doc.styles, errors });
   if (errors.length) throw new Error(errors.map((e) => `${e.line ? `line ${e.line}: ` : ''}${e.message}`).join('\n'));
   const out = [];
-  if (doc.unit) out.push(`unit ${num(doc.unit)}`);
+  if (doc.unitGiven) out.push(`unit ${num(doc.unit)}`);
   if (doc.grid) out.push('grid');
   for (const [name, def] of Object.entries(doc.styles)) {
     if (def.line == null) continue;

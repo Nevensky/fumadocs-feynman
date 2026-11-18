@@ -150,11 +150,24 @@ caption "crossed (vertex correction)"
 
 ### Fock and GW, standing up
 
-vertical stands a self-energy up: the interaction runs straight from the lower vertex to the upper one, and the electron arcs round on the right, in at the bottom and out at the top (dir=left reverses it). flow puts arrows on the interaction, along the momentum it carries.
+vertical stands a self-energy up: the interaction runs straight from the lower vertex to the upper one, and the electron arcs round on the right, in at the bottom and out at the top (dir=left reverses it). The interaction carries no arrow, as a phonon or a photon line carries none: mom= draws the momentum it carries as an arrow beside it, down towards the vertex where the electron enters, the way q runs when the inner electron carries k+q; standing up, it also lengthens the interaction a little, to give the arrow room.
 
 ```feynman source
-fock vertical flow legLabel="n\mathbf{k}" G="m,\mathbf{k}+\mathbf{q}" v="v(\mathbf{q})"
-| gw vertical legLabel="n\mathbf{k}"
+fock vertical legLabel="n\mathbf{k}" G="m,\mathbf{k}+\mathbf{q}" v="v(\mathbf{q})" mom="\mathbf{q}"
+| gw vertical legLabel="n\mathbf{k}" mom="\mathbf{q}"
+```
+
+### The momentum through the interaction
+
+mom= puts the momentum beside the interaction, as an arrow that points towards the vertex where the electron enters: the way q runs when the inner electron carries k+q, as in Σ(k) = i Σ\_q v(q) G(k+q). momdir=back turns it round, for k−q. Around an inner diagram both pieces carry it, and momtop= labels the upper one. The arrow sits inside, opposite the label, where a short momentum such as q fits; momside=out puts it outside, for a longer one such as Q+G′∥, and the label makes way. By hand, a line’s arrow runs from its first end to its second: the interaction is written from a, so the arrow towards a reads momdir=back there.
+
+```feynman source
+fock legLabel="\mathbf{k}" G="\mathbf{k}+\mathbf{q}" mom="\mathbf{q}"
+caption "inner line \mathbf{k}+\mathbf{q}"
+| fock legLabel="\mathbf{k}" G="\mathbf{k}-\mathbf{q}" mom="\mathbf{q}" momdir=back
+caption "inner line \mathbf{k}−\mathbf{q}: momdir=back"
+| fock vertical inner=chi mom="\mathbf{Q}" momtop="\mathbf{Q}+\mathbf{G}'_\parallel" momside=out
+caption "momtop=, momside=out"
 ```
 
 ### The correlation self-energy: a response function inside the interaction
@@ -162,7 +175,7 @@ fock vertical flow legLabel="n\mathbf{k}" G="m,\mathbf{k}+\mathbf{q}" v="v(\math
 inner=chi splits the interaction around a response function χ, so that it reads v χ v = W − v, the correlation part of the screened interaction (with the plain Fock diagram it makes GW). Its points are c and d, the lens is X; here every point carries its plane-wave label.
 
 ```feynman source
-fock vertical inner=chi flow legLabel="n,\mathbf{K}" G="m,\mathbf{K}+\mathbf{Q}" v="v(\mathbf{Q})" vtop="v(\mathbf{Q}+\mathbf{G}'_\parallel)" chi="\chi(\omega-E_{m\mathbf{K}+\mathbf{Q}})"
+fock vertical inner=chi legLabel="n,\mathbf{K}" G="m,\mathbf{K}+\mathbf{Q}" v="v(\mathbf{Q})" vtop="v(\mathbf{Q}+\mathbf{G}'_\parallel)" chi="\chi(\omega-E_{m\mathbf{K}+\mathbf{Q}})"
 a "G_z" pos=below
 c "G_{z1}" pos=right
 d "G_{z2}" pos=right

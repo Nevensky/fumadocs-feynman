@@ -9,7 +9,7 @@
 //   // fumadocs-mdx 11–14 (source.config.ts)
 //   export default defineConfig({ mdxOptions: { remarkPlugins: [remarkFeynman] } });
 //
-// Options: { lang = 'feynman', component = 'Feynman', styles, strict = false, validate = true, source = false }
+// Options: { lang = 'feynman', component = 'Feynman', styles, unit, strict = false, validate = true, source = false, quiet = false }
 // The fence meta can carry caption="...", title="...", unit=36 and id="...", and the bare word source.
 // Diagram errors are reported against the .mdx file at build time (as errors with strict: true).
 //
@@ -48,10 +48,10 @@ const element = (name, attributes, children) => ({ type: 'mdxJsxFlowElement', na
  * What shows a chart's source: one code block, or, when the block uses templates, Template / By hand tabs.
  * Returns { nodes, error }: error when the block could not be written out by hand (the Template tab is then shown alone).
  */
-function sourceBlocks(chart, lang, styles) {
+function sourceBlocks(chart, lang, styles, unit) {
   const code = (s) => ({ type: 'code', lang: 'md', meta: null, value: `\`\`\`${lang}\n${s}\n\`\`\`` });
   let hand = null, error = null;
-  try { if (templatesIn(chart, { styles }).length) hand = expand(chart, { styles }); } catch (e) { error = e; }
+  try { if (templatesIn(chart, { styles }).length) hand = expand(chart, { styles, unit }); } catch (e) { error = e; }
   if (!hand) return { nodes: [code(chart)], error };
   const tabs = [['Template', chart], ['By hand', hand]];
   const node = element('CodeBlockTabs', [attr('defaultValue', 'Template')], [
@@ -79,19 +79,26 @@ export function remarkFeynman(options = {}) {
         // MDX loaders (fumadocs-mdx among them) do not print vfile messages, so say it on the console too
         if (options.quiet !== true) console.warn(`[fumadocs-feynman] ${file.path ?? 'mdx'}${place ? `:${place.line}` : ''}: ${message}`);
       };
+      // the fence's unit= sizes the diagram, else the site's (given to the component too), and a template may size
+      // itself by it. Only the fence's last unit= that is a positive number reaches the component, so that it draws at
+      // the unit checked here: with none, the component keeps the site's as well
+      const pos = (v) => (Number.isFinite(+v) && +v > 0 ? +v : undefined);
+      const fenceUnit = parseMeta(node.meta).filter(([k, v]) => k === 'unit' && pos(v)).pop();
+      const meta = [...parseMeta(node.meta).filter(([k]) => k !== 'unit'), ...(fenceUnit ? [fenceUnit] : [])];
+      const unit = pos(fenceUnit?.[1]) ?? pos(options.unit);
       let valid = false;
       if (options.validate !== false) {
-        const { errors } = render(chart, { styles: options.styles });
+        const { errors } = render(chart, { styles: options.styles, unit });
         for (const e of errors) report(e.message, e.line, options.strict);
         valid = errors.length === 0;
       }
       const attributes = [{ type: 'mdxJsxAttribute', name: 'chart', value: chart }];
-      for (const [k, v] of parseMeta(node.meta)) attributes.push({ type: 'mdxJsxAttribute', name: k, value: v });
+      for (const [k, v] of meta) attributes.push({ type: 'mdxJsxAttribute', name: k, value: v });
       parent.children[index] = { type: 'mdxJsxFlowElement', name, attributes, children: [], position: node.position };
       // the bare word source, not one inside a quoted value such as caption="the source term"
       const bare = String(node.meta || '').replace(/"[^"]*"|'[^']*'/g, '');
       if (options.source || /(^|\s)source(\s|$)/.test(bare)) {
-        const { nodes, error } = sourceBlocks(chart, lang, options.styles);
+        const { nodes, error } = sourceBlocks(chart, lang, options.styles, unit);
         // a diagram with errors has been reported already; a valid one that cannot be written out is a bug to report
         if (error && valid) report(`the By hand tab is left out: ${error.message}`);
         parent.children.splice(index + 1, 0, ...nodes);

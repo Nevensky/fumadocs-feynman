@@ -53,6 +53,9 @@ export function resolveStyle(name, opts = {}, userStyles = {}) {
 }
 
 const DOUBLE_HEAD = 1.3, ARROW_CLEAR = 4.5 * 1.3;
+// lines that carry no arrow: an arrow marks a fermion (an electron, or a hole running back), and phonons, photons,
+// gluons and the Coulomb, screened and impurity interactions are none (their momentum goes beside them, mom=)
+const UNDIRECTED = new Set(['phonon', 'phonon2', 'photon', 'photon2', 'coulomb', 'screened', 'field', 'field2', 'gluon', 'gluon2', 'impurity']);
 
 /** Label clearance from a line's centre: one value per family, so labels of G and G^0 share a baseline. */
 function clearance(st) {
@@ -182,11 +185,19 @@ function arrowHead(x, y, tx, ty, color, scale = 1) {
 }
 
 // ---------- labels ----------
-function placeLabel(out, bb, runs, px, py, nx, ny, gap, color, size = LABEL) {
+function placeLabel(out, bb, runs, px, py, nx, ny, gap, color, size = LABEL, { edge = false } = {}) {
   const m = measureRuns(runs, size), h = m.bottom - m.top;
   const ext = Math.abs(nx) * (m.w / 2) + Math.abs(ny) * (h / 2);
   const cx = px + nx * (gap + ext), cy = py + ny * (gap + ext);
   const base = cy - (m.top + m.bottom) / 2;
+  // edge: beside a line that runs up the page, the label starts at the gap whatever its width in the font in use
+  // (wider than the measure for some), so that its near edge keeps clear of what lies between it and the line
+  if (edge && Math.abs(nx) > 0.92) {
+    const x = px + nx * gap, s = Math.sign(nx), far = x + s * (m.w + Math.max(3, 0.15 * m.w));
+    out.push(labelSVG(runs, x, base, { size, color, anchor: s > 0 ? 'start' : 'end' }));
+    bb.box(Math.min(x, far), base + m.top, Math.max(x, far), base + m.bottom);
+    return;
+  }
   out.push(labelSVG(runs, cx, base, { size, color }));
   bb.box(cx - m.w / 2, base + m.top, cx + m.w / 2, base + m.bottom);
 }
@@ -315,10 +326,15 @@ export function renderTerm(term, ctx) {
   // lines
   const desc = [];
   const drawn = []; // every line drawn so far, sampled, for the gaps where later lines cross it
+  const momentum = []; // momentum arrows, drawn after every line
   for (const e of term.edges) {
     const o = e.opts || {};
     const st = resolveStyle(e.style, o, styles);
     if (!st) { err(`unknown line style "${e.style}"`, e.line); continue; }
+    if ((o.arrow === 'fwd' || o.arrow === 'back') && UNDIRECTED.has(st.base)) {
+      err(`a ${st.base} line carries no arrow (an arrow marks a fermion: an electron, or a hole running back): draw it with -- (a leg without in or out), and show the momentum it carries with mom="q" beside it`, e.line);
+      continue;
+    }
     let A = e.from.rel ? null : resolve(e.from, e.line);
     let B = e.to.rel ? null : resolve(e.to, e.line);
     if (e.from.rel && e.to.rel) { err('a line needs a vertex or a point at one end at least; both ends are relative +(dx,dy)', e.line); continue; }
@@ -483,11 +499,12 @@ export function renderTerm(term, ctx) {
     // arrow
     // explicit arrows come from the DSL (-> <- --); templates set flip to reverse a fermion's default arrow
     const arrow = o.arrow || (st.arrow ? (o.flip ? 'back' : 'fwd') : 'none');
-    let arrowMid = null;
+    let arrowMid = null, endHead = null;
     if (arrow === 'fwd' || arrow === 'back') {
       const sgn = arrow === 'back' ? -1 : 1;
       if (o.arrowAt === 'end' || o.arrowAt === 'start') {
         const t = (o.arrowAt === 'end') === (sgn === 1) ? 1 : 0;
+        endHead = t;
         const p = G.at(curve, t), d = G.tan(curve, t), tx = d[0] * sgn, ty = d[1] * sgn;
         marks.push(arrowHead(p[0] - tx * 5, p[1] - ty * 5, tx, ty, col));
       } else {
@@ -519,12 +536,39 @@ export function renderTerm(term, ctx) {
     const near = arrowMid && Math.abs(tl - arrowMid.t) * L < 12 ? arrowMid.half : 0;
     if (o.label) placeLabel(labels, bb, parseLabel(o.label, lopt), pm[0], pm[1], nx, ny, o.dist != null ? +o.dist : Math.max(clearance(st), near) + 4, cssTextColor(st.color));
 
-    // crystal-momentum arrow beside the line
-    if (o.mom) {
-      // opposite the label; on a straight line with no label, a page word places the arrow itself
-      const ms = o.momside === 'left' ? 1 : o.momside === 'right' ? -1 : s && !bend && !o.label ? s : -side;
-      const off = (Math.max(hw, near) + 6) * ms, half = Math.min(0.24, 15 / Math.max(L, 1));
-      let pts = G.sample(G.sub(curve, Math.max(0, tl - half), Math.min(1, tl + half)), 12).map((p) => G.offset(p, off));
+    // crystal-momentum arrow beside the line: drawn once every line is, as a later line passing over this one can
+    // still move its arrowhead, which the momentum arrow keeps clear of
+    if (o.mom) momentum.push(() => {
+      const PX = Math.max(L, 1);
+      // the arrow runs about 30 px, and 16 px at least where the line is long enough, so that its head (7 px) is not all of it;
+      // on a loop a sixth of the way round at most, so that it does not reach down to the loop's vertex and the lines there
+      const half = Math.min(isLoop ? 0.085 : 0.45, Math.max(Math.min(0.24, 15 / PX), 8 / PX));
+      // beside the label, or where mompos= puts it along the line; opposite the label, and on a straight line with no
+      // label, where a page word puts it
+      let tm = o.mompos != null ? +o.mompos : tl;
+      let ms = o.momside === 'left' ? 1 : o.momside === 'right' ? -1 : s && !bend && !o.label ? s : -side;
+      if (isLoop) {
+        // a loop's goes outside, a sixth of the way round from a label outside, and stays on the far half of the loop,
+        // away from its vertex and the lines there
+        const labelOut = !!o.label && nx * (pm[0] - curve.cx) + ny * (pm[1] - curve.cy) > 0;
+        if (o.mompos == null) tm = Math.min(0.68, Math.max(0.32, labelOut ? (tl <= 0.5 ? tl + 0.18 : tl - 0.18) : tl));
+        if (!o.momside) {
+          const p0 = G.at(curve, tm), d0 = G.tan(curve, tm);
+          ms = d0[1] * (p0[0] - curve.cx) - d0[0] * (p0[1] - curve.cy) > 0 ? 1 : -1;
+        }
+      }
+      // clear of the line's ends, where its vertices and the lines and labels there are (a loop's ends are its
+      // vertex, which the far half keeps clear of), and 16 px long at least: moved in from an end rather than cut short
+      const lo = isLoop ? 0 : Math.min(9, 0.12 * L) / PX, hi = 1 - lo, need = Math.min(hi - lo, 16 / PX);
+      let t0 = Math.max(lo, tm - half), t1 = Math.min(hi, tm + half);
+      if (t1 - t0 < need) { if (tm - half < lo) t1 = t0 + need; else t0 = t1 - need; }
+      // the label goes beside the arrow as drawn
+      const tc = (t0 + t1) / 2, at = G.at(curve, tc), dt = G.tan(curve, tc);
+      // clear of the line's own arrowheads, where they now are, wherever the arrow comes within 12 px of one
+      const heads = [me.arrow && me.arrow.t, endHead].filter((h) => h != null);
+      const nearM = heads.some((h) => h > t0 - 12 / PX && h < t1 + 12 / PX) ? ARROW_CLEAR : 0;
+      const off = (Math.max(hw, nearM) + 6) * ms;
+      let pts = G.sample(G.sub(curve, t0, t1), 12).map((p) => G.offset(p, off));
       if (o.momdir === 'back') pts = pts.reverse();
       const a = pts[pts.length - 2], b = pts[pts.length - 1], dl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
       const tx = (b[0] - a[0]) / dl, ty = (b[1] - a[1]) / dl;
@@ -532,11 +576,14 @@ export function renderTerm(term, ctx) {
       marks.push(`<path d="${poly(pts, f)}" style="stroke:${cssColor('muted')};stroke-width:1.2;fill:none" stroke-linecap="round"/>`);
       marks.push(arrowHead(b[0] - tx * 4, b[1] - ty * 4, tx, ty, cssColor('muted'), 0.8));
       pts.forEach((p) => bb.add(p[0], p[1], 2));
-      const mx = dm[1] * ms, my = -dm[0] * ms;
-      placeLabel(labels, bb, parseLabel(o.mom, lopt), pm[0], pm[1], isLoop ? -nx : mx, isLoop ? -ny : my, Math.abs(off) + 4, cssColor('ink'), 12.5);
-    }
+      // the label beyond the arrow, clear of its head, which reaches 3.6 px either side of it
+      const mx = dt[1] * ms, my = -dt[0] * ms;
+      placeLabel(labels, bb, parseLabel(o.mom, lopt), at[0], at[1], mx, my, Math.abs(off) + 6.5, cssColor('ink'), 12.5, { edge: true });
+    });
     desc.push(`${st.base}${o.label ? ' ' + labelText(o.label) : ''}${isLoop ? ' loop' : bend ? ' arc' : ''}`);
   }
+
+  for (const draw of momentum) draw();
 
   // vertices on top of the lines (blobs have an opaque base that hides line ends)
   let hatchId = null;

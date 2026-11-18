@@ -46,10 +46,10 @@ export function parse(source: string, options?: Pick<RenderOptions, 'unit' | 'st
 /**
  * The block written out by hand: every vertex, line and text its templates stand for, as plain statements.
  * render(expand(src)) draws the same picture as render(src). Throws if the block has errors. The block's own
- * style statements and title are kept; `styles` (the site's, as given to the remark plugin) are known while
- * expanding and not written out.
+ * style statements and title are kept; `styles` (the site's, as given to the remark plugin) and `unit` (the
+ * site's or the fence's, which a template may size itself by) are known while expanding and not written out.
  */
-export function expand(source: string, options?: Pick<RenderOptions, 'styles'>): string;
+export function expand(source: string, options?: Pick<RenderOptions, 'styles' | 'unit'>): string;
 /** The names of the templates a block uses (none for a block written by hand). */
 export function templatesIn(source: string, options?: Pick<RenderOptions, 'styles'>): string[];
 
@@ -74,7 +74,11 @@ export interface TemplateSpec {
   example: string;
   params: Record<string, string | number | boolean>;
   flags?: Record<string, Record<string, string | number | boolean>>;
-  build(params: Record<string, string | number | boolean>): Term | Equation;
+  /**
+   * env.unit: the px per unit it will be drawn at (40 by default), as some templates keep room, in units, for labels of
+   * fixed size; env.given: the options the block wrote, which such a template keeps as written.
+   */
+  build(params: Record<string, string | number | boolean>, env?: { unit?: number; given?: Set<string> }): Term | Equation;
 }
 export const TEMPLATES: Record<string, TemplateSpec>;
 
@@ -106,9 +110,14 @@ export interface EdgeOptions {
   dir?: string | number;
   size?: number;
   cw?: boolean;
+  /** A momentum arrow beside the line, with this label; it runs along the written direction (from -> to). */
   mom?: string;
+  /** The side of the written direction the momentum arrow goes on; by default the side opposite the label (on a loop, outside). */
   momside?: 'left' | 'right';
+  /** back turns the momentum arrow round, against the written direction. */
   momdir?: 'back';
+  /** Where the momentum arrow sits, as a fraction along the line: by default beside the label (on a loop, a sixth of the way round from a label outside). */
+  mompos?: number;
   color?: string;
   width?: number;
   amp?: number;

@@ -278,6 +278,18 @@ writeFileSync(new URL('index.html', out), `<!doctype html><meta charset="utf-8">
     ok(!why, `${ex.id}: expand() draws the same picture (${why})`);
     if (templatesIn(ex.source).length) ok(!templatesIn(hand).length, `${ex.id}: the expansion uses no template`);
   }
+  // the momentum arrow written out: its direction and sides, and the mirrored GWΓ
+  for (const src of ['gw gamma="\\Gamma" mom=q dir=left momside=out', 'fan-migdal mom=q dir=left momdir=back', 'fock vertical inner=bubble ladder=1 mom=q momside=out dir=left', 'gw vertical mom="\\mathbf{q}" W=""']) {
+    let why = 'threw';
+    try { const b = render(expand(src), { id: 'x' }); why = b.errors.length ? JSON.stringify(b.errors) : differ(render(src, { id: 'x' }).html, b.html); } catch (e) { why = e.message; }
+    ok(!why, `${src}: expand() draws the same picture (${why})`);
+  }
+  {
+    const src = 'fock vertical inner=chi mom=q momside=out', hand = expand(src, { unit: 30 }), b = render(hand, { id: 'x', unit: 30 });
+    const why = b.errors.length ? JSON.stringify(b.errors) : differ(render(src, { id: 'x', unit: 30 }).html, b.html);
+    ok(!why && !/^unit/m.test(hand) && /^b at \(0, 6\.1267\)$/m.test(hand) && /^X at .* w=1\.0667 h=1\.8667$/m.test(hand), `expand() at the site's unit sizes the templates by it, and leaves the unit to the site (${why})`);
+  }
+  ok(/^unit 30$/m.test(expand('unit 30\nfock vertical mom=q', { unit: 30 })) && !/^unit/m.test(expand('fock vertical mom=q', { unit: 30 })), "the block's own unit is kept, the site's left to the site");
   ok(templatesIn('fock\n+ gw').join() === 'fock,gw' && templatesIn('a at 0,0; b at 1,0\na -> b fermion').length === 0, 'templatesIn names the templates a block uses');
   const fock = expand('fock');
   ok(/^a at \(0, 0\)$/m.test(fock) && /^a -> b fermion side=right "G\^0"$/m.test(fock) && /^a -- b coulomb bend=0.45 "v"$/m.test(fock), 'expand writes vertices and lines');
@@ -315,7 +327,8 @@ writeFileSync(new URL('index.html', out), `<!doctype html><meta charset="utf-8">
   ok(up.nodes.get('a').x === up.nodes.get('b').x && up.nodes.get('b').y > up.nodes.get('a').y, 'vertical puts b straight above a');
   ok(arc && arc.from.node === 'a' && arc.to.node === 'b' && arc.opts.bend < 0, 'the electron runs up, arcing round on the right');
   ok(term('fock vertical dir=left').edges.find((x) => x.style === 'fermion' && x.opts.bend).opts.flip === true, 'dir=left reverses it');
-  ok(term('fock vertical flow').edges.filter((x) => x.style === 'coulomb').every((x) => x.opts.arrow === 'back'), 'flow: the interaction points down, along the momentum it carries');
+  ok(['fock vertical', 'fock vertical inner=chi', 'gw vertical', 'fan-migdal vertical inner=bubble'].every((s2) => term(s2).edges.filter((x) => x.style !== 'fermion').every((x) => !x.opts.arrow || x.opts.arrow === 'none')),
+    'a standing interaction carries no arrow: an arrow marks a fermion');
   const chi = term('fock vertical inner=chi');
   ok(chi.nodes.get('X').shape === 'lens' && chi.nodes.has('c') && chi.nodes.has('d') && chi.nodes.get('X').opts.label === '\\chi', 'inner=chi: the lens X between c and d');
   const bub = term('fock vertical inner=bubble ladder=2');
@@ -335,13 +348,123 @@ writeFileSync(new URL('index.html', out), `<!doctype html><meta charset="utf-8">
   const rungs = term('fock vertical inner=bubble ladder=2');
   ok(rungs.nodes.get('l2').y - rungs.nodes.get('l1').y > 0.9, 'the rungs inside a standing bubble are spaced as lying down');
   ok(!e('fock vertical inner=bubble ladder=2 height=3.65') && /room/.test(e('fock vertical inner=bubble ladder=2 height=3.6')), 'the minimum height the error asks for is accepted');
-  ok(/flow needs vertical/.test(e('fock flow')) && /height= needs vertical/.test(e('gw height=3')) && /ladder= needs inner=bubble/.test(e('fock vertical ladder=2'))
+  ok(/height= needs vertical/.test(e('fock height=3')) && /height= needs vertical/.test(e('gw height=3')) && /ladder= needs inner=bubble/.test(e('fock vertical ladder=2'))
     && /rungLabel= needs inner=bubble/.test(e('fock vertical inner=chi rungLabel=W')) && /chi=, vtop= need inner=/.test(e('fock vertical chi=x vtop=y')) && /above 0/.test(e('fock vertical height=-1')),
     'standing-only options are errors where they would do nothing');
   ok(term('gw legLabel=n').edges.filter((x) => x.opts.label === 'n').length === 2 && term('fan-migdal legLabel=n').edges.filter((x) => x.opts.label === 'n').length === 2
     && term('gw gamma="\\Gamma" legLabel=n').edges.filter((x) => x.opts.label === 'n').length === 2, 'legLabel labels the legs lying down too');
   ok(term('rpa n=1 ladder=1').title === 'RPA chain of 1 bubble with 1 ladder rung' && term('bubble ladder=2.4').title === 'polarization bubble with 2 ladder rungs'
     && /bubble with 1 rung in/.test(term('fock vertical inner=bubble ladder=1').title) && /response function inside the interaction/.test(term('fock vertical inner=chi').title), 'titles count what is drawn');
+}
+
+// ---- arrows mark fermions: phonon, photon and interaction lines carry none ----
+{
+  const e = (src) => render(src).errors;
+  const no = (src) => e(src).some((x) => /carries no arrow/.test(x.message));
+  const two = 'a at 0,0; b at 2,0\n';
+  ok(e(two + 'a -> b coulomb').some((x) => x.line === 2 && /a coulomb line carries no arrow/.test(x.message) && /mom=/.test(x.message)), 'an arrow on a Coulomb line is an error, on its line, pointing to mom=');
+  ok(['a <- b photon', 'a -> b screened', 'a -> b phonon dressed', 'a -> b gluon', 'a -> b impurity', 'a -> b interaction', 'a -> b field'].every((l) => no(two + l)), 'photons, W, dressed phonons, gluons, impurity lines and aliases take no arrow');
+  ok(no('style D = photon\n' + two + 'a -> b D') && no(two + 'leg a left phonon in'), "a style's base counts, and so does a leg's in or out");
+  ok(['a -> b fermion', 'a <- b hole', 'a -> b ghost', 'a -> b scalar', 'a -> b boson', 'a -> b plain', 'a -- b phonon', 'a -- b photon mom="q"', 'leg a left phonon'].every((l) => !e(two + l).length), 'fermions, ghosts and charged lines keep their arrows; undirected lines and momentum arrows are fine');
+  // every template, with its example and each of its flags, draws no arrow on a boson line
+  const { TEMPLATES } = await import('../src/index.js');
+  const bad = [];
+  for (const [name, spec] of Object.entries(TEMPLATES)) {
+    for (const src of [name, spec.example, ...Object.keys(spec.flags || {}).map((f) => `${name} ${f}`)]) if (no(src)) bad.push(src);
+  }
+  for (const src of ['fock vertical', 'fock vertical inner=chi', 'fock vertical inner=bubble ladder=2', 'gw vertical', 'fan-migdal vertical dressed', 'fan-migdal vertical inner=bubble dir=left',
+    'fock mom=q', 'gw gamma="\\Gamma" mom=q momdir=back', 'fan-migdal vertical inner=chi mom=q momside=out', 'fock vertical inner=bubble mom=q dir=left']) if (no(src)) bad.push(src);
+  ok(!bad.length, `no template puts an arrow on a boson line (${bad.join('; ')})`);
+  ok(EXAMPLES.every((ex) => !no(ex.source)), 'no example does');
+}
+
+// ---- the momentum through the interaction: mom= beside it, towards the vertex where the electron enters ----
+{
+  const term = (src) => parse(src).items[0].term;
+  const e = (src) => render(src).errors.map((x) => x.message).join(' | ');
+  // which way each interaction's momentum arrow runs, along its written direction or back
+  const way = (src) => term(src).edges.filter((x) => x.style !== 'fermion').map((x) => (!x.opts.mom ? '-' : x.opts.momdir === 'back' ? 'back' : 'fwd')).join(' ');
+  ok(way('fock mom=q') === 'back' && way('gw mom=q') === 'back' && way('fan-migdal mom=q') === 'back', 'lying down, the arrow runs back along a -> b, to a, where the electron enters (k+q on the inner line)');
+  ok(way('fock mom=q dir=left') === 'fwd' && way('gw mom=q dir=left') === 'fwd' && way('fan-migdal mom=q dir=left') === 'fwd', 'dir=left: to b, where the electron enters then');
+  ok(way('fock mom=q momdir=back') === 'fwd' && way('fock mom=q dir=left momdir=back') === 'back', 'momdir=back turns it round (k−q)');
+  ok(way('gw gamma="\\Gamma" mom=q') === 'back' && way('gw gamma="\\Gamma" mom=q dir=left') === 'back', 'GWΓ: to the triangle, mirrored or not');
+  ok(way('fock vertical mom=q') === 'back' && way('fock vertical mom=q dir=left') === 'fwd' && way('gw vertical mom=q') === 'back' && way('fan-migdal vertical inner=bubble mom=q') === 'back back',
+    'standing up: down to a, up to b with dir=left, and through both pieces around an inner diagram');
+  ok(term('fock vertical inner=chi mom=Q momtop="Q+G"').edges.filter((x) => x.style === 'coulomb').map((x) => x.opts.mom).join() === 'Q,Q+G'
+    && term('fock vertical inner=chi mom=Q').edges.filter((x) => x.style === 'coulomb').every((x) => x.opts.mom === 'Q'), 'momtop= labels the upper piece, which carries mom= otherwise');
+  ok(['fock', 'gw', 'fan-migdal vertical', 'gw gamma="\\Gamma"'].every((s) => term(s).edges.every((x) => !x.opts.mom)), 'no mom=, no momentum arrow');
+  // inside (opposite the label) by default; momside=out swaps arrow and label
+  const opt = (src) => term(src).edges.find((x) => x.style !== 'fermion' && x.opts.mom).opts;
+  ok(opt('fock mom=q').momside == null && opt('fock mom=q').side == null && opt('fock mom=q momside=in').momside == null, 'the arrow sits inside by default, and momside=in says so');
+  ok(opt('fock mom=q momside=out').momside === 'left' && opt('fock mom=q momside=out').side === 'in', 'momside=out on an arc: the arrow outside, the label inside');
+  const so = opt('fock vertical mom=q momside=out');
+  ok(so.momside === 'left' && so.side == null && so.pos === 0.3 && so.mompos === 0.7 && opt('gw vertical mom=q momside=out W=""').mompos == null,
+    'momside=out standing up: the label stays outside, low on the line, and the arrow goes above it (with no label, the arrow keeps the middle)');
+  ok(term('fock vertical inner=chi mom=q momside=out').edges.filter((x) => x.style === 'coulomb').map((x) => `${x.opts.pos}/${x.opts.mompos}`).join(' ') === '0.25/0.7 0.75/0.3',
+    'around an inner diagram, each label near a or b and each arrow near the inner diagram');
+  // standing up, the interaction is longer with mom=, so that the arrow clears the electron, and the label with momside=out
+  const tall = (src) => { const t = term(src); return +(t.nodes.get('b').y - t.nodes.get('a').y).toFixed(3); };
+  ok(tall('fock vertical') === 2.2 && tall('fock vertical mom=q') === 2.8 && tall('fock vertical inner=chi') === 3.2 && tall('fock vertical inner=chi mom=q') === 4.3
+    && tall('fock vertical inner=chi mom=q momside=out') === 4.6 && tall('fock vertical inner=chi mom=q height=4.5') === 4.5 && tall('fock mom=q') === 0, 'mom= lengthens a standing interaction, unless height= says otherwise');
+  ok(/momentum arrow beside it: give it 4.1 at least/.test(e('fock vertical inner=chi mom=q height=3.9')) && !e('fock vertical inner=chi mom=q height=4.1')
+    && /give it 2.6 at least/.test(e('gw vertical mom=q height=2.5')) && !e('gw vertical height=2') && !e('fock vertical inner=chi height=2.2'), 'a height too short for the momentum arrow is an error, and only with mom=');
+  // that room is for an arrow and a label of fixed size in px: below 40 px per unit it takes more units
+  const tallAt = (src, unit) => { const t = parse(src, { unit }).items[0].term; return +(t.nodes.get('b').y - t.nodes.get('a').y).toFixed(3); };
+  ok(tall('unit 30\nfock vertical mom=q') === 3.73 && tallAt('fock vertical mom=q', 30) === 3.73 && tallAt('fock vertical mom=q', 48) === 2.8 && tallAt('fock vertical', 30) === 2.2,
+    'the momentum room grows by 40/unit below 40 px, from the block or the site, and only with mom=');
+  ok(/give it 3.47 at least/.test(e('unit 30\ngw vertical mom=q height=3.4')) && !e('unit 30\ngw vertical mom=q height=3.47'), 'and so does the shortest height it accepts');
+  // the label keeps clear of the arrowhead whatever the font: it is anchored at its near edge, beside a line that runs up the page
+  const momText = (src) => (render(src).svg.match(/<text class="feyn-lab" x="(-?[\d.]+)" y="[^"]*" font-size="12.5"( text-anchor="(\w+)")?/) || []).slice(1);
+  const [xin, , ain] = momText('fock vertical mom=q'), [xout, , aout] = momText('fock vertical mom=q momside=out');
+  ok(ain == null && +xin > 12 && aout === 'end' && +xout < -12, 'the momentum label starts at its edge nearest the line, at least 12 px from it');
+  // a line's own momentum arrow: mompos= moves it along the line, and it stays an arrow on a short line
+  ok(term('(0,0) -- (0,2) photon mom=q mompos=0.8').edges[0].opts.mompos === 0.8 && /mompos=2: .*fraction along the line/.test(e('(0,0) -- (0,2) photon mom=q mompos=2')), 'mompos= is a fraction along the line');
+  const shaft = (src) => { const d = render(src).svg.match(/<path d="([^"]+)" style="stroke:var\(--feyn-muted[^;]*;stroke-width:1\.2;fill:none"/)[1]; const n = d.match(/-?[\d.]+/g).map(Number); return Math.hypot(n[n.length - 2] - n[0], n[n.length - 1] - n[1]); };
+  ok(shaft('(0,0) -- (0,0.5) photon mom=q') > 12, 'on a line 20 px long the arrow is no mere arrowhead');
+  // on a loop the arrow goes outside: on top with no label or one inside, a sixth of the way round from one outside
+  const grey = (src) => { const d = render(src).svg.match(/<path d="([^"]+)" style="stroke:var\(--feyn-muted[^;]*;stroke-width:1\.2;fill:none"/)[1]; const n = d.match(/-?[\d.]+/g).map(Number); return n.reduce((acc, v, i) => (i % 2 ? acc : [...acc, [v, n[i + 1]]]), []); };
+  const loopAt = (lab) => grey(`a at (0,0)\na -- a photon loop size=1.2 ${lab} mom=q`), r0 = (p) => Math.hypot(p[0], p[1] + 24);
+  const onTop = loopAt(''), beside = loopAt('"\\gamma"'), insideLab = loopAt('side=in "\\gamma"');
+  ok(onTop.every((p) => r0(p) > 28) && insideLab.every((p) => r0(p) > 28) && beside.every((p) => r0(p) > 28), 'on a loop the momentum arrow runs outside it');
+  ok(Math.abs(onTop[6][0]) < 3 && Math.abs(insideLab[6][0]) < 3 && Math.abs(beside[6][0]) > 15, 'on top of the loop, unless an outside label is there');
+  // clear of the line's own arrowhead wherever they overlap along the line, and of the line's ends
+  const offAt = (src) => { const p = grey(src); return Math.min(...p.map((q) => Math.abs(q[1]))); };
+  ok(offAt('a at (0,0); b at (2,0)\na -> b fermion "G" mom=k mompos=0.35') > 9 && offAt('a at (0,0); b at (2,0)\na -> b fermion "G" mom=k mompos=0.85') < 8, 'mompos= beside the arrowhead of the line keeps out of its way');
+  ok(Math.min(...grey('(0,0) -- (0,1.5) photon mom=q mompos=0.9').map((q) => -q[1])) >= 0 && Math.max(...grey('(0,0) -- (0,1.5) photon mom=q mompos=0.9').map((q) => -q[1])) <= 60 - 7, 'the arrow keeps clear of the end of the line');
+  // moved in from an end of the line rather than cut short or run into the vertex, with its label beside it as drawn
+  const span = (src) => { const p = grey(src); return { x0: Math.min(...p.map((q) => q[0])), x1: Math.max(...p.map((q) => q[0])) }; };
+  const nearEnd = span('a at (0,0); b at (5,0)\na -> b fermion "G" mom=q mompos=0.95'), atEnd = span('a at (0,0); b at (5,0)\na -> b fermion "G" mom=q mompos=1');
+  ok(nearEnd.x1 <= 191 && nearEnd.x1 - nearEnd.x0 > 12 && atEnd.x1 <= 191 && atEnd.x1 - atEnd.x0 > 12, 'near an end the arrow keeps 9 px off the vertex, and its length');
+  const lab9 = +render('a at (0,0); b at (2,0)\na -> b fermion "G" mom=q mompos=0.05').svg.match(/<text class="feyn-lab" x="(-?[\d.]+)" y="[^"]*" font-size="12.5"/)[1], sp9 = span('a at (0,0); b at (2,0)\na -> b fermion "G" mom=q mompos=0.05');
+  ok(lab9 > sp9.x0 && lab9 < sp9.x1 && sp9.x0 >= 8.9, 'and its label goes beside the arrow as drawn');
+  const long = span('a at (0,0); b at (12,0)\na -> b fermion "G" mom=k');
+  ok(Math.abs(long.x1 - long.x0 - 27) < 3, 'on a long line the arrow keeps its 30 px');
+  // a loop's arrow goes outside whatever side= puts its label on, and keeps to the far half of the loop
+  const loopR = (src, R, cy) => grey(src).every((p) => Math.hypot(p[0], p[1] - cy) > R + 3);
+  ok(loopR('a at (0,0)\na -- a photon loop size=1 side=right "\\gamma" mom=q', 20, -20) && loopR('a at (0,0)\na -- a photon loop size=1 cw side=left "\\gamma" mom=q', 20, -20), 'side=left|right on a loop still puts the arrow outside');
+  ok(grey('a at (0,0)\na -- a photon loop size=1.2 side=in pos=0.2 "\\gamma" mom=q').every((p) => p[1] < -12), 'a label moved down the loop does not drag the arrow down to its vertex');
+  // the line's arrowhead, moved by a line passing over it, still pushes the momentum arrow out
+  ok(offAt('a at (0,0); b at (4,0)\na -> b fermion "G" mom=k mompos=0.125\n(2,1) -- (2,-1) photon over') > 9, 'an arrowhead moved by a line passing over pushes the momentum arrow out');
+  // the shortest height the error asks for is accepted, at any unit
+  const hint = (src) => +(e(src).match(/give it ([\d.]+) at least/) || [])[1];
+  const h30 = hint('unit 30\nfock vertical inner=bubble ladder=1 mom=q height=5'), h20 = hint('unit 20\nfock vertical inner=bubble ladder=1 height=1');
+  ok(h30 > 5 && !e(`unit 30\nfock vertical inner=bubble ladder=1 mom=q height=${h30}`) && h20 > 1 && !e(`unit 20\nfock vertical inner=bubble ladder=1 height=${h20}`), 'the height the error suggests is accepted, with mom= and without');
+  // lying down, the default width grows below 40 px per unit too, with mom= only
+  const wAt = (src, unit) => parse(src, { unit }).items[0].term.nodes.get('b').x;
+  ok(wAt('fock mom=q', 30) === 3.73 && wAt('fock', 30) === 2.8 && wAt('fan-migdal mom=q width=3', 30) === 3 && wAt('fock mom=q width=2.8', 30) === 2.8 && wAt('gw mom=q', 40) === 2.8, 'lying down, the default width keeps its size in px with mom=, and a width= given is kept');
+  // drawn: the head of the grey arrow, where it is and which way it points (0 = right, 90 = down the page)
+  const head = (src) => { const m = render(src).svg.match(/translate\((-?[\d.]+) (-?[\d.]+)\) rotate\((-?[\d.]+)\) scale\(0\.8\)/); return m ? { x: +m[1], y: +m[2], ang: +m[3] } : null; };
+  const st = head('fock vertical mom=q'), stL = head('fock vertical mom=q dir=left'), stO = head('fock vertical mom=q momside=out');
+  ok(head('(0,0) -- (0,2) photon mom=q mompos=0.8').y < head('(0,0) -- (0,2) photon mom=q').y - 15, 'mompos=0.8 moves the arrow up a line written upwards');
+  ok(st && st.x > 0 && st.ang === 90 && stL.ang === -90 && stO.x < 0 && stO.ang === 90, 'standing up: the arrow right of v and pointing down to a, up to b with dir=left; momside=out puts it left');
+  const ly = head('fock mom=q'), lyL = head('fock mom=q dir=left'), lyO = head('fock mom=q momside=out'), top = -0.45 * 2.8 * 40;
+  ok(ly && ly.y > top && ly.x < 56 && Math.abs(ly.ang) > 135 && lyL.x > 56 && Math.abs(lyL.ang) < 45 && lyO.y < top, 'lying down: under the arc, pointing back to a (to b with dir=left); momside=out puts it above');
+  // errors
+  ok(/momdir=sideways: .*momdir=back turns it round/.test(e('fock mom=q momdir=sideways')) && /momside=up: .*\bin\b.*\bout\b/.test(e('fock mom=q momside=up')), 'momdir= and momside= are checked');
+  ok(/momdir= needs mom=/.test(e('fock momdir=back')) && /momside= needs mom=/.test(e('gw momside=out')) && /momtop= needs mom=/.test(e('fock vertical inner=chi momtop=x'))
+    && /momdir=, momside= need mom=/.test(e('fan-migdal momdir=back momside=out')), 'momdir, momside and momtop need mom=');
+  ok(/momtop= needs vertical/.test(e('fock momtop=x')) && /momtop= needs inner=/.test(e('fock vertical momtop=x')) && /unknown option "momtop"/.test(e('gw momtop=x')), 'momtop= needs a standing interaction in two pieces');
+  ok(/momdir=forward: .*momdir=back turns it round/.test(e('(0,0) -- (2,0) phonon mom=q momdir=forward')) && !e('(0,0) -- (2,0) phonon mom=q momdir=back'), "a line's momdir= is back, or left out");
 }
 
 // ---- lens extents, label reach, stacked scripts, the | gap ----
@@ -392,6 +515,15 @@ writeFileSync(new URL('index.html', out), `<!doctype html><meta charset="utf-8">
   const h = run('source', 'a at 0,0; b at 1,0\na -> b fermion');
   ok(h.length === 2 && h[1].type === 'code' && !h[1].meta && h[1].value.includes('a -> b'), 'a block written by hand: one source block, no tabs');
   ok(run('caption="the source term"', 'fock').length === 1 && run(null, 'fock', { source: true }).length === 2, 'source inside a quoted value does not count; the option turns it on for every block');
+  const u30 = run('source unit=30', 'fock vertical mom=q');
+  ok(/^b at \(0, 3\.73\)$/m.test(u30[1].children[2].children[0].value) && u30[0].attributes.some((a) => a.name === 'unit' && a.value === '30'), "the fence's unit= reaches the component and the By hand tab");
+  ok(/^b at \(0, 3\.73\)$/m.test(run('source', 'fock vertical mom=q', { unit: 30 })[1].children[2].children[0].value), "the site's unit (the remark option) reaches the By hand tab when the fence has none");
+  const unitAttr = (meta, opts) => run(meta, 'fock vertical mom=q', opts)[0].attributes.filter((x) => x.name === 'unit').map((x) => x.value).join();
+  ok(unitAttr('unit=30 unit=abc') === '30' && unitAttr('unit=abc') === '' && unitAttr('unit=36 unit=30') === '30' && /^b at \(0, 3\.73\)$/m.test(run('source unit=abc', 'fock vertical mom=q', { unit: 30 })[1].children[2].children[0].value),
+    "the component gets the fence's last unit= that is a positive number, or none, so that it draws at the unit checked");
+  const said = (meta, value) => { const m = []; remarkFeynman({ quiet: true })({ type: 'root', children: [{ type: 'code', lang: 'feynman', meta, value }] }, { message(x) { m.push(x); }, fail() {} }); return m; };
+  ok(['unit=-30', 'unit=Infinity', 'unit=abc'].every((meta) => !said(meta, 'a at 0,0; b at 2,0\na -- b photon bulge=0.8 above "D"').length) && said('unit=30', 'gw vertical mom=q height=3').length === 1,
+    "a fence's unit is used as the component uses it: a positive number, else none");
   const site = run('source', 'gw\nb -- (3,1) D', { styles: { D: 'photon' } });
   ok(site[1].name === 'CodeBlockTabs' && /b -- \(3, 1\) D/.test(site[1].children[2].children[0].value) && !/style D/.test(site[1].children[2].children[0].value),
     "the site's styles are known to By hand, and left to the site");

@@ -280,17 +280,24 @@ function nameOf(lines) {
  * (bottom) to b (top) and the electron arcs round on the right, in at the bottom from the left and out at the top
  * to the right (dir=left reverses the arrows). inner= puts a diagram inside the interaction, between c (below)
  * and d (above): chi, a response-function lens X, or bubble, a polarization bubble of two electron lines with
- * ladder= rungs inside. flow draws the interaction's arrows downwards, along the momentum it carries.
+ * ladder= rungs inside. The interaction carries no arrow: an arrow marks a fermion, and a Coulomb line, W or a
+ * phonon is none. The momentum it carries goes in its label, or beside it as a grey arrow with mom= (momOpts).
  */
-function standing(t, p, { boson, label, innerLabel, bosonDressed = false }) {
+function standing(t, p, { boson, label, innerLabel, bosonDressed = false, unit = 40 }) {
   const inner = p.inner || '', n = Math.max(0, Math.round(p.ladder || 0));
   if (inner && inner !== 'chi' && inner !== 'bubble') throw new Error(`inner=${inner}: the inner diagrams are chi (a lens) and bubble (two electron lines)`);
+  // a momentum arrow beside the interaction makes it longer (MOM_ROOM): room for an arrow and a label whose size is
+  // fixed in px, so that below 40 px per unit the interaction and its inner diagram take more units, and keep their size in px
+  const k = p.mom ? momScale(unit) : 1;
   // a bubble's rungs are spaced as in the bubbles lying down (chain()), so that a rung's label clears the next rung
-  const mid = !inner ? 0 : inner === 'chi' ? 1.4 : Math.max(1.4, 0.95 * (n + 1));
-  const H = +p.height > 0 ? +p.height : inner ? mid + 1.8 : 2.2, seg = (H - mid) / 2;
-  if (inner && seg < 0.4 - 1e-9) throw new Error(`height=${p.height} leaves no room for the interaction around the inner diagram: give it ${+(mid + 0.8).toFixed(2)} at least`);
-  const dl = { dressed: p.dressed }, flow = { ...(p.flow ? { arrow: 'back' } : {}), ...(bosonDressed ? { dressed: true } : {}) };
-  if (inner === 'chi') t.node('X', 0, H / 2, 'lens', { label: innerLabel, h: mid, w: 0.8, pos: 'left' });
+  const mid = k * (!inner ? 0 : inner === 'chi' ? 1.4 : Math.max(1.4, 0.95 * (n + 1)));
+  // (without mom=, a piece is 0.4 units at least, and 12 px, so that it still shows outside its vertices)
+  const room = p.mom ? Object.fromEntries(Object.entries(MOM_ROOM).map(([key, v]) => [key, +(v * k).toFixed(2)])) : { h: 2.2, seg: 0.9, segOut: 0.9, segMin: Math.max(0.4, 12 / unit), hMin: 0 };
+  const H = +p.height > 0 ? +p.height : inner ? mid + 2 * (p.momside === 'out' ? room.segOut : room.seg) : room.h, seg = (H - mid) / 2;
+  if (inner && seg < room.segMin - 1e-9) throw new Error(`height=${p.height} leaves no room for the interaction around the inner diagram${p.mom ? ' and the momentum arrow beside it' : ''}: give it ${Math.ceil((mid + 2 * room.segMin) * 100 - 1e-6) / 100} at least`);
+  if (!inner && H < room.hMin - 1e-9) throw new Error(`height=${p.height} leaves no room for the momentum arrow beside the interaction: give it ${room.hMin} at least`);
+  const dl = { dressed: p.dressed }, bo = bosonDressed ? { dressed: true } : {};
+  if (inner === 'chi') t.node('X', 0, H / 2, 'lens', { label: innerLabel, h: mid, w: 0.8 * k, pos: 'left' });
   const a = t.node('a', 0, 0, p.vertex), b = t.node('b', 0, H, p.vertex);
   // the legs are longer than a stub, so that their labels clear labels written on the vertices
   const leg = 1.1 + rimUnits(p.vertex);
@@ -298,13 +305,16 @@ function standing(t, p, { boson, label, innerLabel, bosonDressed = false }) {
   stub(t, b, 0, H, leg, 'fermion', p.legLabel ? { label: p.legLabel, above: true } : {});
   // the electron: up the right-hand side, its label outside the arc
   t.edge(a, b, p.line, { ...dl, bend: -0.36, label: p.G, flip: flipOf(p.dir) });
-  if (!inner) { t.edge(a, b, boson, { ...flow, label }); return; }
+  // the electron enters at a, or at b with dir=left: the momentum arrow points there
+  const inA = !flipOf(p.dir);
+  if (!inner) { t.edge(a, b, boson, { ...bo, label, ...momOpts(p, inA, { label, along: [0.3, 0.7] }) }); return; }
   // the interaction in two pieces, written upwards so that their labels sit on the left; it meets the inner diagram
   // through the same coupling as the electron at a and b (a vertex of the dot kind; a dot otherwise)
   const vk = (SHAPES[p.vertex] || SHAPES.dot).kind === 'dot' ? p.vertex : 'dot';
   const c = t.node('c', 0, seg, vk), d = t.node('d', 0, H - seg, vk);
-  t.edge(a, c, boson, { ...flow, label });
-  t.edge(d, b, boson, { ...flow, label: p.vtop || label });
+  // with momside=out each piece has its label near a or b, and its arrow near the inner diagram
+  t.edge(a, c, boson, { ...bo, label, ...momOpts(p, inA, { label, along: [0.25, 0.7] }) });
+  t.edge(d, b, boson, { ...bo, label: p.vtop || label, ...momOpts(p, inA, { mom: p.momtop || p.mom, label: p.vtop || label, along: [0.75, 0.3] }) });
   if (inner === 'chi') return;
   // a bubble of two electron lines from c to d, the left one up, the right one down; rungs straight across
   const L = mid, s = Math.max(0.45, 0.32 * L), R = (L * L / 4 + s * s) / (2 * s), cy = seg + L / 2;
@@ -319,8 +329,47 @@ function standing(t, p, { boson, label, innerLabel, bosonDressed = false }) {
   for (let k = 1; k <= n; k++) t.edge(left[k], right[k], p.rung, { label: k === 1 ? p.rungLabel : '' });
 }
 
+// ---------- the momentum through the interaction ----------
+// mom= draws the momentum an interaction carries as a grey arrow beside it (an arrowhead on the line would make it
+// a fermion). The arrow points towards the vertex where the electron enters, the way q runs when the inner
+// electron carries k+q, as in Σ(k) = i Σ_q v(q) G(k+q); momdir=back turns it round, for k−q. It sits inside, between
+// the interaction and the electron, opposite the interaction's label, where a short momentum (q, Q) fits. momside=out
+// puts it outside, for a longer one, and the label makes way: inside an arc, which has room for it, or along a
+// straight interaction standing up, where the electron passes too close for a label inside.
+// Standing up, the interaction is longer with mom=, so that the arrow and its label clear the electron, which
+// runs close to the interaction near a and b, and so that with momside=out the label and the arrow fit one above
+// the other: h for a single line, seg for each piece around an inner diagram (2.2 and 0.9 without mom=).
+const MOM_ROOM = { h: 2.8, seg: 1.45, segOut: 1.6, segMin: 1.35, hMin: 2.6 };
+/** How much larger, in units, a self-energy with a momentum arrow is drawn at `unit` px per unit: 1 from 40 px up. */
+const momScale = (unit = 40) => Math.max(1, 40 / unit);
+/** The width of a self-energy lying down: with a momentum arrow and no width= given, as wide in px as at 40 px per unit. */
+const momWidth = (p, env) => (p.mom && !env.given?.has('width') ? +(p.width * momScale(env.unit)).toFixed(2) : p.width);
+/**
+ * Options for the momentum arrow of an interaction line: `toFrom` when the electron enters at the line's first
+ * end, `label` the line's label; `along` (a straight line standing up) the label's and the arrow's places along
+ * it with momside=out.
+ */
+function momOpts(p, toFrom, { mom = p.mom, label = '', along = null } = {}) {
+  if (!mom) return {};
+  const o = { mom };
+  if (toFrom !== (p.momdir === 'back')) o.momdir = 'back';
+  if (p.momside === 'out') {
+    // outside is the left of the written direction: the convex side of these arcs, the left of a line written upwards
+    o.momside = 'left';
+    if (label && along) { o.pos = along[0]; o.mompos = along[1]; } else if (label) o.side = 'in';
+  }
+  return o;
+}
+/** Errors for momdir=, momside= and momtop= where they mean nothing. */
+function checkMom(p) {
+  if (p.momdir && p.momdir !== 'back') throw new Error(`momdir=${p.momdir}: the momentum arrow points towards the vertex where the electron enters (k+q on the inner line); momdir=back turns it round (k−q)`);
+  if (p.momside && p.momside !== 'in' && p.momside !== 'out') throw new Error(`momside=${p.momside}: the momentum arrow goes in, between the interaction and the electron, or out, where the interaction's label makes way for it`);
+  const lone = ['momdir', 'momside', 'momtop'].filter((k) => p[k]);
+  if (lone.length && !p.mom) throw new Error(`${optionNames(lone)} ${lone.length > 1 ? 'need' : 'needs'} mom=: mom="\\mathbf{q}" draws the momentum arrow, with its label`);
+}
+
 // the options only the standing forms use, with their defaults
-const STANDING_ONLY = { height: 0, flow: false, inner: '', chi: '', vtop: '', ladder: 0, rung: 'screened', rungLabel: '' };
+const STANDING_ONLY = { height: 0, inner: '', chi: '', vtop: '', momtop: '', ladder: 0, rung: 'screened', rungLabel: '' };
 const optionNames = (ks) => ks.map((k) => (typeof STANDING_ONLY[k] === 'boolean' ? k : `${k}=`)).join(', ');
 /** Errors for standing-only options given where they would do nothing. */
 function checkStanding(p) {
@@ -332,7 +381,7 @@ function checkStanding(p) {
   }
   const rungs = ['ladder', 'rung', 'rungLabel'].filter(given);
   if (rungs.length && p.inner !== 'bubble') throw new Error(`${optionNames(rungs)} ${rungs.length > 1 ? 'need' : 'needs'} inner=bubble: the rungs go inside the bubble`);
-  const around = ['chi', 'vtop'].filter(given);
+  const around = ['chi', 'vtop', 'momtop'].filter(given);
   if (around.length && !p.inner) throw new Error(`${optionNames(around)} ${around.length > 1 ? 'need' : 'needs'} inner=chi or inner=bubble: without an inner diagram there is nothing for ${around.length > 1 ? 'them' : 'it'} to label`);
 }
 // the external legs' label, below them
@@ -393,20 +442,21 @@ export const TEMPLATES = {
   // ---------------- electron self-energies ----------------
   'fan-migdal': {
     title: 'Fan–Migdal self-energy: an electron line spanned by a phonon arc', example: 'fan-migdal dressed vertex=disk',
-    params: { dressed: false, phonon: 'phonon', vertex: 'dot', G: '', F: '', dir: 'right', width: 2.8, vertical: false, height: 0, inner: '', chi: '', vtop: '', ladder: 0, rung: 'screened', rungLabel: '', flow: false, legLabel: '', line: 'fermion' },
-    build(p) {
-      checkStanding(p);
+    params: { dressed: false, phonon: 'phonon', vertex: 'dot', G: '', F: '', mom: '', momdir: '', momside: '', dir: 'right', width: 2.8, vertical: false, height: 0, inner: '', chi: '', vtop: '', momtop: '', ladder: 0, rung: 'screened', rungLabel: '', legLabel: '', line: 'fermion' },
+    build(p, env = {}) {
+      checkStanding(p); checkMom(p);
       const t = term(`Fan–Migdal self-energy${p.vertical ? ', standing up' : ''}${p.inner ? ` with ${p.inner === 'chi' ? 'a phonon self-energy' : 'a bubble'} inside the phonon line` : ''}`);
       if (p.vertical) {
         // around an inner diagram the phonon pieces stay bare: F holds every Π insertion already, and F Π F counts one twice
         const bareF = !p.dressed || !!p.inner;
-        standing(t, { ...p, G: p.G || (p.dressed ? 'G' : 'G^0') }, { boson: p.phonon, bosonDressed: !bareF, label: p.F || (bareF ? 'F^0' : 'F'), innerLabel: p.chi || (p.inner === 'chi' ? '\\Pi' : '') });
+        standing(t, { ...p, G: p.G || (p.dressed ? 'G' : 'G^0') }, { boson: p.phonon, bosonDressed: !bareF, label: p.F || (bareF ? 'F^0' : 'F'), innerLabel: p.chi || (p.inner === 'chi' ? '\\Pi' : ''), unit: env.unit });
         return t;
       }
-      const w = p.width, a = t.node('a', 0, 0, p.vertex), b = t.node('b', w, 0, p.vertex);
+      const w = momWidth(p, env), a = t.node('a', 0, 0, p.vertex), b = t.node('b', w, 0, p.vertex);
       stub(t, a, 0, 0, -stubLen(p.vertex), 'fermion', legOpts(p)); stub(t, b, w, 0, stubLen(p.vertex), 'fermion', legOpts(p));
       t.edge(a, b, p.line, { dressed: p.dressed, label: p.G || (p.dressed ? 'G' : 'G^0'), side: 'right', flip: flipOf(p.dir) });
-      t.edge(a, b, p.phonon, { dressed: p.dressed, bend: 0.42, label: p.F || (p.dressed ? 'F' : 'F^0') });
+      const F = p.F || (p.dressed ? 'F' : 'F^0');
+      t.edge(a, b, p.phonon, { dressed: p.dressed, bend: 0.42, label: F, ...momOpts(p, !flipOf(p.dir), { label: F }) });
       return t;
     }
   },
@@ -423,14 +473,14 @@ export const TEMPLATES = {
   },
   gw: {
     title: 'GW self-energy: an electron line spanned by the screened interaction; gamma= puts Hedin’s vertex at one end (Σ = GWΓ)', example: 'gw',
-    params: { dressed: true, G: 'G', W: 'W', vertex: 'dot', dir: 'right', width: 2.8, gamma: '', gcolor: 'c4', vertical: false, height: 0, flow: false, legLabel: '', line: 'fermion' },
-    build(p) {
-      checkStanding(p);
-      const w = p.width;
+    params: { dressed: true, G: 'G', W: 'W', mom: '', momdir: '', momside: '', vertex: 'dot', dir: 'right', width: 2.8, gamma: '', gcolor: 'c4', vertical: false, height: 0, legLabel: '', line: 'fermion' },
+    build(p, env = {}) {
+      checkStanding(p); checkMom(p);
+      const w = momWidth(p, env);
       if (p.vertical) {
         if (p.gamma) throw new Error('gamma= and vertical do not go together yet: draw Σ = GWΓ lying down');
         const t = term('GW self-energy, standing up');
-        standing(t, { ...p, inner: '', ladder: 0 }, { boson: 'screened', label: p.W, innerLabel: '' });
+        standing(t, { ...p, inner: '', ladder: 0 }, { boson: 'screened', label: p.W, innerLabel: '', unit: env.unit });
         return t;
       }
       if (p.gamma) {
@@ -451,35 +501,36 @@ export const TEMPLATES = {
         const arc = G.arc([0, -tip[1]], [w, 0], 0.42);
         let tTop = 0.5, yTop = Infinity;
         for (let k = 0; k <= 60; k++) { const q = G.at(arc, k / 60); if (q[1] < yTop) { yTop = q[1]; tTop = k / 60; } }
-        t.edge(tip, b, 'screened', { bend: 0.42, label: p.W, pos: tTop });
+        // the electron enters through the triangle, at W's first end, mirrored or not
+        t.edge(tip, b, 'screened', { bend: 0.42, label: p.W, pos: tTop, ...momOpts(p, true, { label: p.W }) });
         return flipOf(p.dir) ? mirror(t) : t;
       }
       const t = term('GW self-energy');
       const a = t.node('a', 0, 0, p.vertex), b = t.node('b', w, 0, p.vertex);
       stub(t, a, 0, 0, -stubLen(p.vertex), 'fermion', legOpts(p)); stub(t, b, w, 0, stubLen(p.vertex), 'fermion', legOpts(p));
       t.edge(a, b, p.line, { dressed: p.dressed, label: p.G, side: 'right', flip: flipOf(p.dir) });
-      t.edge(a, b, 'screened', { bend: 0.45, label: p.W });
+      t.edge(a, b, 'screened', { bend: 0.45, label: p.W, ...momOpts(p, !flipOf(p.dir), { label: p.W }) });
       return t;
     }
   },
   fock: {
     title: 'Fock (exchange) self-energy', example: 'fock',
-    params: { G: 'G^0', v: 'v', dir: 'right', width: 2.8, vertical: false, height: 0, inner: '', chi: '', vtop: '', ladder: 0, rung: 'screened', rungLabel: '', flow: false, legLabel: '', vertex: 'dot', dressed: false, line: 'fermion' },
-    build(p) {
-      checkStanding(p);
+    params: { G: 'G^0', v: 'v', mom: '', momdir: '', momside: '', dir: 'right', width: 2.8, vertical: false, height: 0, inner: '', chi: '', vtop: '', momtop: '', ladder: 0, rung: 'screened', rungLabel: '', legLabel: '', vertex: 'dot', dressed: false, line: 'fermion' },
+    build(p, env = {}) {
+      checkStanding(p); checkMom(p);
       // a dressed line is G: the default's bare G^0 goes with it
       const G = p.dressed && p.G === 'G^0' ? 'G' : p.G;
       if (p.vertical) {
         const n = Math.max(0, Math.round(p.ladder || 0));
         const t = term(`Fock exchange self-energy, standing up${p.inner === 'chi' ? ', with a response function inside the interaction' : p.inner === 'bubble' ? `, a polarization bubble${n ? ` with ${plural(n, 'rung')}` : ''} in the interaction` : ''}`);
-        standing(t, { ...p, G }, { boson: 'coulomb', label: p.v, innerLabel: p.chi || (p.inner === 'chi' ? '\\chi' : '') });
+        standing(t, { ...p, G }, { boson: 'coulomb', label: p.v, innerLabel: p.chi || (p.inner === 'chi' ? '\\chi' : ''), unit: env.unit });
         return t;
       }
       const t = term('Fock exchange self-energy');
-      const w = p.width, a = t.node('a', 0, 0, p.vertex), b = t.node('b', w, 0, p.vertex);
+      const w = momWidth(p, env), a = t.node('a', 0, 0, p.vertex), b = t.node('b', w, 0, p.vertex);
       stub(t, a, 0, 0, -stubLen(p.vertex), 'fermion', legOpts(p)); stub(t, b, w, 0, stubLen(p.vertex), 'fermion', legOpts(p));
       t.edge(a, b, p.line, { dressed: p.dressed, label: G, side: 'right', flip: flipOf(p.dir) });
-      t.edge(a, b, 'coulomb', { bend: 0.45, label: p.v });
+      t.edge(a, b, 'coulomb', { bend: 0.45, label: p.v, ...momOpts(p, !flipOf(p.dir), { label: p.v }) });
       return t;
     }
   },

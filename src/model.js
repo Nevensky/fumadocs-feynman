@@ -92,7 +92,7 @@ export class Term {
   /**
    * Add a line. opts.arrow: 'fwd' (from -> to), 'back' (to -> from) or 'none'; left out, fermion-like
    * styles get 'fwd' and the others none.
-   * opts: { arrow, label, side, dist, pos, bend, loop, dir, size, cw, mom, momside, momdir, color, width, amp, wl, faint, dressed, bare }
+   * opts: { arrow, label, side, dist, pos, bend, loop, dir, size, cw, mom, momside, momdir, mompos, color, width, amp, wl, faint, dressed, bare }
    */
   edge(from, to, style = 'fermion', opts = {}) {
     this.edges.push({ from: endpoint(from), to: endpoint(to), style, opts: { ...opts } });

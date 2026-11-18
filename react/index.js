@@ -28,7 +28,8 @@ export function Feynman({ chart, children, caption, title, unit, styles, id, cla
 /** A Feynman component with site-wide defaults, e.g. createFeynman({ styles: { D: 'photon', F: 'phonon dressed' } }). */
 export function createFeynman(defaults = {}) {
   function SiteFeynman(props) {
-    return h(Feynman, { ...defaults, ...props, styles: { ...defaults.styles, ...props.styles } });
+    // a unit that is not a positive number (a fence's unit=abc) leaves the site's
+    return h(Feynman, { ...defaults, ...props, unit: num(props.unit) ?? defaults.unit, styles: { ...defaults.styles, ...props.styles } });
   }
   return SiteFeynman;
 }
