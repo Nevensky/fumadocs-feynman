@@ -1,6 +1,6 @@
 import { llms, loader } from 'fumadocs-core/source';
 import { lucideIconsPlugin } from 'fumadocs-core/source/lucide-icons';
-import { docsContentRoute, docsImageRoute, docsRoute } from './shared';
+import { basePath, docsContentRoute, docsImageRoute, docsRoute } from './shared';
 import { defineDocs } from 'fumadocs-mdx/macro';
 import { applyMdxPreset } from 'fumadocs-mdx/config';
 import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
@@ -28,8 +28,13 @@ export const source = loader({
   plugins: [lucideIconsPlugin()],
 });
 
-export const docsLlms = llms(source, {
-  renderPage: async (page) => `# ${page.data.title} (${page.url})
+// The llms files and the Markdown copies of the pages hold plain links, which nothing else prefixes with the base path
+// the site is served under (GitHub Pages), so they get it here: in the index, in each page's heading and in its links.
+const withBasePath = (markdown: string) => markdown.replace(/\]\(\/(?!\/)/g, `](${basePath}/`);
 
-${await page.data.getText('processed')}`,
+export const docsLlms = llms(source, {
+  renderUrl: (item) => basePath + item.url,
+  renderPage: async (page) => `# ${page.data.title} (${basePath}${page.url})
+
+${withBasePath(await page.data.getText('processed'))}`,
 });
