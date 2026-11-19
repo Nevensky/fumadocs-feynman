@@ -6,6 +6,7 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 import type { MDXComponents } from 'mdx/types';
 import { Feynman } from 'fumadocs-feynman/react';
+import { Email } from './email';
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
@@ -21,6 +22,7 @@ export function getMDXComponents(components?: MDXComponents) {
     Tabs,
     TypeTable,
     Feynman,
+    Email,
     ...components,
   } satisfies MDXComponents;
 }

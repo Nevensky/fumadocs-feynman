@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: If you use fumadocs-feynman in published work, please cite it as below.
+type: software
+title: "fumadocs-feynman: Feynman diagrams for fumadocs"
+abstract: >-
+  Feynman diagrams for fumadocs documentation sites, written in feynman code blocks and rendered to static,
+  theme-aware SVG at build time, with templates for the standard diagrams of many-body perturbation theory.
+authors:
+  - family-names: Golenić
+    given-names: Neven
+    website: https://github.com/Nevensky
+version: 0.1.0
+date-released: 2026-11-19
+license: MIT
+repository-code: https://github.com/Nevensky/fumadocs-feynman
+url: https://nevensky.github.io/fumadocs-feynman/
+keywords:
+  - Feynman diagrams
+  - many-body perturbation theory
+  - fumadocs
+  - MDX
+  - SVG

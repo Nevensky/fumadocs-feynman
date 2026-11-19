@@ -17,6 +17,11 @@
     "nextjs"
   ],
   "license": "MIT",
+  "author": {
+    "name": "Neven Golenić",
+    "url": "https://github.com/Nevensky"
+  },
+  "funding": "https://thanks.dev/u/gh/nevensky",
   "homepage": "https://nevensky.github.io/fumadocs-feynman/",
   "repository": {
     "type": "git",

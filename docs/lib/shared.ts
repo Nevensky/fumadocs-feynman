@@ -16,6 +16,17 @@ export const gitConfig = {
 };
 export const githubUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 
+// who makes the package: shown under every page, on the About page and in the site's metadata
+export const author = {
+  name: 'Neven Golenić',
+  displayName: 'Dr. Neven Golenić',
+  url: 'https://github.com/Nevensky',
+};
+export const copyrightYear = 2026;
+export const licenseUrl = `${githubUrl}/blob/${gitConfig.branch}/LICENSE`;
+// thanks.dev; .github/FUNDING.yml points GitHub's Sponsor button at the same page
+export const fundingUrl = 'https://thanks.dev/u/gh/nevensky';
+
 const getContentUrl = createGetUrl(docsContentRoute);
 
 export function getPageMarkdownUrl(page: { slugs: string[]; locale?: string }) {

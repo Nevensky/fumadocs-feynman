@@ -14,11 +14,16 @@ and every example.
 
 ## Install
 
+Install it from GitHub, as it is not published to npm:
+
 ```bash
-npm install fumadocs-feynman
+npm install github:Nevensky/fumadocs-feynman --allow-git=root
 ```
 
-Until the package is on npm, install it from GitHub: `npm install github:Nevensky/fumadocs-feynman`.
+npm 12 refuses packages from git without `--allow-git=root`, so also put `allow-git=root` in the project's `.npmrc` to
+keep later installs working. Earlier versions of npm need neither. The
+[installation guide](https://nevensky.github.io/fumadocs-feynman/docs/installation) has the commands for pnpm, yarn
+and bun.
 
 It needs Node 18 or later and a fumadocs site with fumadocs-mdx 11 or later. React is an optional peer: version 18 or
 19 works, and with 19 the component puts its stylesheet in `<head>` by itself.
@@ -108,8 +113,20 @@ npm run docs:gen     # regenerate the Examples pages and the template reference
 | `gallery/build.mjs` | a static gallery of every example, with a live playground |
 
 Nothing needs Node on the host: every command also runs in Docker, for example
-`docker run --rm -v "$PWD":/work -w /work node:22-bookworm-slim npm test`.
+`docker run --rm -v "$PWD":/work -w /work node:22-bookworm-slim npm test`. The documentation site deploys itself to
+GitHub Pages on every push to `main`.
 
-## License
+## Support
 
-[MIT](LICENSE)
+fumadocs-feynman is free and open source. If it is useful to you or your group, you can support its development on
+[thanks.dev](https://thanks.dev/u/gh/nevensky).
+
+## Citing
+
+If you use fumadocs-feynman in published work, please cite it. The **Cite this repository** button on the
+repository's GitHub page gives the reference in APA and BibTeX, from [CITATION.cff](CITATION.cff).
+
+## Author and licence
+
+fumadocs-feynman is written by Dr. Neven Golenić ([@Nevensky](https://github.com/Nevensky)) and released under the
+[MIT License](LICENSE). Copyright © 2026 Neven Golenić.

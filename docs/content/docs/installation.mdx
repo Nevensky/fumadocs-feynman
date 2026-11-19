@@ -16,46 +16,47 @@ description: Add fumadocs-feynman to a fumadocs site, from the package to a firs
 
 ### Install the package
 
+fumadocs-feynman is installed from its GitHub repository: it is not published to npm.
+
 <Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
 <Tab value="npm">
 
 ```bash
-npm install fumadocs-feynman
+npm install github:Nevensky/fumadocs-feynman --allow-git=root
 ```
+
+npm 12 refuses packages from git unless you allow them. The flag allows this one, and `allow-git=root` in your project's `.npmrc` keeps later installs working. Earlier versions of npm need neither.
 
 </Tab>
 <Tab value="pnpm">
 
 ```bash
-pnpm add fumadocs-feynman
+pnpm add github:Nevensky/fumadocs-feynman
 ```
 
 </Tab>
 <Tab value="yarn">
 
 ```bash
-yarn add fumadocs-feynman
+yarn add fumadocs-feynman@github:Nevensky/fumadocs-feynman
+```
+
+If Yarn blocks the request because the repository is not in `approvedGitRepositories` (current releases do by default), add it to your project's `.yarnrc.yml` and run the command again:
+
+```yaml title=".yarnrc.yml"
+approvedGitRepositories:
+  - "https://github.com/Nevensky/fumadocs-feynman.git"
 ```
 
 </Tab>
 <Tab value="bun">
 
 ```bash
-bun add fumadocs-feynman
+bun add github:Nevensky/fumadocs-feynman
 ```
 
 </Tab>
 </Tabs>
-
-<Callout type="info" title="Until it is on npm">
-
-fumadocs-feynman is not published to npm yet. Until it is, install it from GitHub:
-
-```bash
-npm install github:Nevensky/fumadocs-feynman
-```
-
-</Callout>
 
 </Step>
 <Step>

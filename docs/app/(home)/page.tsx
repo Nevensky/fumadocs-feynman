@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Feynman } from 'fumadocs-feynman/react';
 import { githubUrl } from '@/lib/shared';
+import { Credits } from '@/components/credits';
 
 // a block written by hand, shown with what it draws
 const SOURCE = `a at (0, 0) disk; b at (2.8, 0) disk
@@ -46,7 +47,9 @@ export default function HomePage() {
           </a>
         </div>
         <p className="mt-6">
-          <code className="inline-block rounded-lg border bg-fd-card px-4 py-2 font-mono text-sm">npm install fumadocs-feynman</code>
+          <code className="inline-block max-w-full rounded-lg border bg-fd-card px-4 py-2 font-mono text-sm [overflow-wrap:anywhere]">
+            npm install github:Nevensky/fumadocs-feynman --allow-git=root
+          </code>
         </p>
       </section>
 
@@ -100,12 +103,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="border-t py-8 text-center text-sm text-fd-muted-foreground">
-        fumadocs-feynman is released under the MIT license.{' '}
-        <a href={githubUrl} className="underline underline-offset-4">
-          Source on GitHub
-        </a>
-        .
+      <footer className="border-t px-4 py-8 text-center">
+        <Credits />
       </footer>
     </main>
   );
