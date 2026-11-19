@@ -474,10 +474,13 @@ writeFileSync(new URL('index.html', out), `<!doctype html><meta charset="utf-8">
   ok(vb('a at 0,0 lens w=2 h=1') === '-26 -26 52 52', 'a lens is never thicker than it is long');
   const sh = { kind: 'lens', x: 0, y: 0, horiz: false, w: 32, h: 56 }, d = Math.SQRT1_2;
   ok(Math.abs(G.lensReach(sh, 1, 0) - 16) < 0.01 && Math.abs(G.lensReach(sh, 0, 1) - 28) < 0.01 && G.lensReach(sh, d, d) < (16 + 28) * d - 5, 'a lens reaches less far diagonally than its box');
-  const { measureRuns, labelSVG } = await import('../src/text.js');
+  const { measureRuns, labelSVG, labelText } = await import('../src/text.js');
   const w = (L) => measureRuns(parseLabel(L), 14).w;
   ok(Math.abs(w('G^0_{ab}') - w('G_{ab}')) < 1e-9 && Math.abs(w('G_{ab}^{0}') - w('G_{ab}')) < 1e-9 && Math.abs(w("G'_z") - w('G_z')) < 1e-9 && Math.abs(w("G'_{\\,}") - w("G'")) < 1e-9, 'a subscript and a superscript (or prime) stack: the wider sets the width');
-  ok(/dx="-7.17"/.test(labelSVG(parseLabel('\\rho^*_{nk}'), 0, 0, { color: 'x' })) && /dx="-3.92"/.test(labelSVG(parseLabel("G'_z"), 0, 0, { color: 'x' })), 'the subscript moves back under the superscript or prime');
+  ok(/dx="-7.17"/.test(labelSVG(parseLabel('\\rho^*_{nk}'), 0, 0, { color: 'x' })) && /dx="-3.94"/.test(labelSVG(parseLabel("G'_z"), 0, 0, { color: 'x' })), 'the subscript moves back under the superscript or prime');
+  const svgOf = (L) => labelSVG(parseLabel(L), 0, 0, { color: 'x' });
+  ok(svgOf("G'") === svgOf('G^{\\prime}') && svgOf("G''_z") === svgOf('G^{\\prime\\prime}_z') && w("k'") === w('k^{\\prime}'), "' is TeX's ^{\\prime}: a raised prime at script size, not a full-size one on the baseline (KaTeX_Main's sits low)");
+  ok(/<tspan dy="-4.03" font-size="7.26" font-style="normal">′<\/tspan>/.test(svgOf("\\delta_{kk'}")) && labelText("\\delta_{kk'}") === 'δ sub kk′', 'a prime inside a script is raised over that script, a size smaller');
   ok(measureRuns(parseLabel('spin'), 14).top === -0.66 * 14 && measureRuns(parseLabel('\\mathbf{q}'), 14).top === -0.47 * 14, 'the dots of i and j count, bold does not make a letter tall');
   const eq = render('fock\n| gw').html;
   ok(eq.includes('word-spacing:28px') && !eq.includes('8px 0 8px 28px'), 'the | gap is a space that a line break swallows');

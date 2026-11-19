@@ -26,7 +26,10 @@ const FONT = { mathrm: 'rm', text: 'rm', textrm: 'rm', operatorname: 'rm', maths
 
 const LOWER_GREEK = /[α-ωϵϑϖϱςϕ]/;
 
-/** Parse a label into runs { t, s (-1 sub | 0 | 1 sup), it (italic), bf (bold) }. */
+/**
+ * Parse a label into runs { t, s (-1 sub | 0 | 1 sup), it (italic), bf (bold) }. Primes from ' get a run of their
+ * own with pr: true; the layout sets them as TeX sets ^{\prime} (see layoutRuns).
+ */
 export function parseLabel(src, opts = {}) {
   const s = String(src ?? '');
   const n = s.length;
@@ -44,14 +47,16 @@ export function parseLabel(src, opts = {}) {
   const emit = (out, ch, ctx) => {
     const st = styleOf(ch, ctx);
     const last = out[out.length - 1];
-    if (last && last.s === ctx.s && last.it === st.it && last.bf === st.bf && !last.over) last.t += ch;
-    else out.push({ t: ch, s: ctx.s, it: st.it, bf: st.bf });
+    if (last && last.s === ctx.s && last.it === st.it && last.bf === st.bf && !last.over && !last.pr === !ctx.pr) last.t += ch;
+    else out.push({ t: ch, s: ctx.s, it: st.it, bf: st.bf, ...(ctx.pr && { pr: true }) });
   };
   // a binary operator between two operands gets TeX's medium space on both sides (k + q); a sign does not (−q)
   const BINOP = /[+−=×±∓·<>≤≥≈≡]/;
   const OPERAND_END = /[\p{L}\p{N}\p{M})\]′]$/u;
   const emitChar = (out, ch, ctx) => {
-    if (!ctx.text) { if (ch === '-') ch = '−'; else if (ch === "'") ch = '′'; else if (ch === '*') ch = '∗'; }
+    // ' is TeX's ^{\prime}: an upright prime, set as a superscript by the layout
+    if (!ctx.text && ch === "'") { emit(out, '′', { ...ctx, font: ctx.font === 'bf' || ctx.font === 'bi' ? 'bf' : 'rm', pr: true }); return; }
+    if (!ctx.text) { if (ch === '-') ch = '−'; else if (ch === '*') ch = '∗'; }
     const last = out[out.length - 1];
     if (!ctx.text && ctx.s === 0 && BINOP.test(ch) && last && last.s === 0 && OPERAND_END.test(last.t)) {
       const sp = { ...ctx, font: 'rm' };
@@ -105,7 +110,7 @@ export function parseLabel(src, opts = {}) {
       }
       // a one-letter argument gets a combining accent on its letter
       for (const r of tmp) r.t = [...r.t].map((c, k) => (total > 1 || k === [...r.t].length - 1 ? c + ACCENT[name] : c)).join('');
-      for (const r of tmp) { const last = out[out.length - 1]; if (last && last.s === r.s && last.it === r.it && last.bf === r.bf && !last.over) last.t += r.t; else out.push(r); }
+      for (const r of tmp) { const last = out[out.length - 1]; if (last && last.s === r.s && last.it === r.it && last.bf === r.bf && !last.over && !last.pr === !r.pr) last.t += r.t; else out.push(r); }
       return;
     }
     if (GREEK[name]) { emit(out, GREEK[name], ctx); return; }
@@ -142,6 +147,13 @@ function advance(ch) {
 
 export const SCRIPT = 0.72;
 const SUB = 0.27, SUP = 0.4;
+// A prime is a superscript, as TeX sets ' (^{\prime}): KaTeX_Main's U+2032 is TeX's \prime, a large glyph that
+// sits low (0.03–0.56 em) and only reads as a prime when made small and raised. Full size on the baseline it reads
+// as a slash (G/). Text fonts draw it already raised (0.4–0.75 em), so there it sits a little higher than theirs.
+// Inside a script a prime is that script's superscript, a size smaller again.
+const asScripts = (runs) => runs.map((r) => (r.pr && !r.s ? { ...r, s: 1, pr: false } : r));
+const scale = (r) => (r.s ? SCRIPT : 1) * (r.pr ? SCRIPT : 1);
+const rise = (r) => (r.s === -1 ? SUB : r.s === 1 ? -SUP : 0) - (r.pr ? SUP * SCRIPT : 0); // baseline, + downwards
 // TeX's italic correction: a superscript after an italic letter moves right, more after F, P, T, V, W, Y
 const italicCorrection = (prev, r) => (r.s === 1 && prev && prev.s === 0 && prev.it ? (/[FPTVWY]$/.test(prev.t) ? 0.12 : 0.08) : 0);
 
@@ -151,13 +163,14 @@ const DEEP = /[gjpqyβγζημξρφχψς()[\]{},;]/;
 
 /**
  * Where the runs go along the line: the shift before each run and the total advance (in px at `size`). A
- * superscript after an italic letter gets TeX's italic correction. A subscript right after a superscript (or after
- * primes, as in G'_z) is set under it, and a superscript right after a subscript over it, as TeX stacks
+ * superscript after an italic letter gets TeX's italic correction. A subscript right after a superscript (a prime is
+ * one, as in G'_z) is set under it, and a superscript right after a subscript over it, as TeX stacks
  * ρ^*_{nk}; what follows starts after the wider of the two.
  */
 function layoutRuns(runs, size) {
+  runs = asScripts(runs);
   const dx = runs.map(() => 0);
-  const width = (r) => { let w = 0; for (const ch of r.t) w += advance(ch) * (r.s ? size * SCRIPT : size) * (r.bf ? 1.06 : 1); return w; };
+  const width = (r) => { let w = 0; for (const ch of r.t) w += advance(ch) * scale(r) * size * (r.bf ? 1.06 : 1); return w; };
   let x = 0, stack = null;   // stack: the scripts on one base { base: x at the base's end, baseRun, end, levels }
   for (let k = 0; k < runs.length;) {
     let j = k, w = 0;
@@ -178,7 +191,7 @@ function layoutRuns(runs, size) {
         dx[k] += ic; x += ic + w; stack.end = x;
       } else {
         x += w;
-        // primes at the end of the base are a superscript: a subscript after them goes under them
+        // a \prime at the end of the base counts as a superscript: a subscript after it goes under it
         const primes = runs[j - 1].t.match(/′+$/);
         if (primes) stack = { base: x - primes[0].length * advance('′') * size, baseRun: null, levels: new Set([1]), end: x };
       }
@@ -196,9 +209,9 @@ function layoutRuns(runs, size) {
 export function measureRuns(runs, size) {
   const { w } = layoutRuns(runs, size);
   let top = -0.47 * size, bottom = 0;
-  runs.forEach((r) => {
-    const fs = r.s ? size * SCRIPT : size;
-    const base = r.s === 1 ? -SUP * size : r.s === -1 ? SUB * size : 0;
+  asScripts(runs).forEach((r) => {
+    const fs = size * scale(r);
+    const base = rise(r) * size;
     const visible = r.t.replace(/[\s   ]/g, '');
     if (!visible) return;
     // bold changes the width, not the height; the dots of i and j reach above the x-height
@@ -222,15 +235,15 @@ const num = (v) => String(Math.round(v * 100) / 100);
 export function labelSVG(runs, x, y, { size = 14, anchor = 'middle', color, cls = 'feyn-lab', weight } = {}) {
   let shift = 0;
   const { dx: shifts } = layoutRuns(runs, size);
-  const parts = runs.map((r, k) => {
-    const target = r.s === -1 ? SUB * size : r.s === 1 ? -SUP * size : 0;
+  const parts = asScripts(runs).map((r, k) => {
+    const target = rise(r) * size;
     const dy = target - shift; shift = target;
     const a = [];
     const dx = shifts[k];
     if (Math.abs(dx) > 0.004) a.push(`dx="${num(dx)}"`);
     if (dy) a.push(`dy="${num(dy)}"`);
     if (r.over) a.push('text-decoration="overline"');
-    if (r.s) a.push(`font-size="${num(size * SCRIPT)}"`);
+    if (r.s) a.push(`font-size="${num(size * scale(r))}"`);
     a.push(`font-style="${r.it ? 'italic' : 'normal'}"`);
     if (r.bf) a.push('font-weight="700"');
     if (r.it) a.push('style="font-family:var(--feyn-font-math)"');
@@ -244,7 +257,7 @@ export function labelSVG(runs, x, y, { size = 14, anchor = 'middle', color, cls 
 
 /** Plain-text form of a label, for aria descriptions. */
 export function labelText(src) {
-  return parseLabel(src).map((r) => (r.s === -1 ? ' sub ' : r.s === 1 ? ' sup ' : '') + r.t.replace(/\p{M}/gu, ' bar') + (r.over ? ' bar ' : '')).join('').replace(/\s+/g, ' ').trim();
+  return parseLabel(src).map((r) => (r.pr ? '' : r.s === -1 ? ' sub ' : r.s === 1 ? ' sup ' : '') + r.t.replace(/\p{M}/gu, ' bar') + (r.over ? ' bar ' : '')).join('').replace(/\s+/g, ' ').trim();
 }
 
 export const escapeXML = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
