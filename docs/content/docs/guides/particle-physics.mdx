@@ -1,0 +1,150 @@
+---
+title: Particle physics
+description: Draw tree-level scattering in the s, t and u channels, Compton scattering and pair annihilation, the QED and QCD loops, and triangle and box loops.
+---
+
+fumadocs-feynman is made for many-body physics, but its lines are those of particle physics too: fermions, photons,
+gluons, scalars and ghosts. These templates draw the standard diagrams of particle physics, in the same `feynman`
+code blocks. [Using templates](/docs/guides/templates) explains how to write options, and the
+[template reference](/docs/reference/templates) lists every option with its default.
+
+The conventions are the usual ones:
+
+- **Time runs left to right.** Incoming particles are on the left, outgoing ones on the right.
+- **Arrows mark fermions.** A fermion's arrow follows the particle: towards the vertex as it comes in, away from it
+  as it leaves. An antiparticle's arrow runs the other way, back in time. Ghosts carry arrows too. Photon, gluon,
+  scalar and other boson lines carry none.
+- **Labels are particle names.** Every leg and propagator takes a label in TeX, such as `e^-`, `\mu^+`, `\gamma`,
+  `g`, `Z^0` or `H`.
+
+Fermions are drawn in the electron colour, photons rose, gluons violet and scalars in the text colour.
+[Notation](/docs/guides/notation) lists every line style.
+
+## The s, t and u channels
+
+`s-channel` draws two particles that annihilate into one propagator, which then makes the outgoing pair. By default
+this is e⁻e⁺ → μ⁻μ⁺ through a photon. `prop=` sets the style of the propagator and `label=` its label.
+
+```feynman source
+s-channel
+| s-channel prop=boson label="Z^0"
+| s-channel prop=scalar label=H mom=q
+```
+
+- `in1=` and `in2=` label the incoming lines, upper and lower. `out1=` and `out2=` label the outgoing ones.
+- `in=` and `out=` set the style of the incoming and outgoing lines: `fermion` (the default), `photon`, `gluon` or
+  `scalar`, for example. On fermion lines, the upper one is the particle and the lower one the antiparticle.
+- `mom=` puts a momentum arrow beside the propagator, as on any line ([Momentum](/docs/guides/momentum)).
+
+`t-channel` draws two particles that exchange a line, one above the other: e⁻μ⁻ → e⁻μ⁻ by default. `anti` makes the
+lower line an antiparticle, with its arrows running right to left. `u-channel` swaps the two outgoing particles,
+which only matters when they are identical. It is drawn with the outgoing lines crossing, one over the other.
+
+```feynman source
+t-channel
+| t-channel anti in2="e^+" out2="e^+"
+| u-channel
+```
+
+They take the same options as `s-channel`, and `height=` sets the distance between their two vertices.
+
+### In equations
+
+A line that starts with `+`, `-` or `=` adds a diagram to an equation ([Using templates](/docs/guides/templates#templates-in-equations)).
+Møller scattering is the t channel minus the u channel, and Bhabha scattering the t channel minus the s channel:
+
+```feynman source
+t-channel in2="e^-" out2="e^-"
+- u-channel
+```
+
+```feynman source
+t-channel anti in2="e^+" out2="e^+"
+- s-channel out1="e^-" out2="e^+"
+```
+
+## Compton scattering and pair annihilation
+
+`compton` draws e⁻γ → e⁻γ along a straight electron line: the electron absorbs the photon and then emits one. With
+`crossed`, it emits first, and the two photons cross over the line.
+
+```feynman source
+compton
++ compton crossed
+```
+
+`annihilation` draws e⁻e⁺ → γγ. The electron line runs from the incoming electron to the incoming positron and gives
+off a photon at each vertex. `crossed` swaps the photons.
+
+```feynman source
+annihilation
++ annihilation crossed
+```
+
+Both take `line=` and `boson=` for the styles of the fermion and the boson lines, `in1=`, `in2=`, `out1=` and `out2=`
+for the labels of the legs, and `label=` for the internal line. With `boson=gluon` and quark labels, they draw the
+same processes in QCD.
+
+## QED and QCD loops
+
+The one-loop diagrams of QED come from the many-body templates, with a photon in place of the phonon or the Coulomb
+line:
+
+```feynman source
+fan-migdal phonon=photon G="e^-" F="\gamma"
+| bubble ext=photon top="e^-" bottom="e^+"
+| vertex-correction ext=photon rung=photon
+```
+
+- [`fan-migdal`](/docs/reference/templates#fan-migdal) with `phonon=photon` is the electron self-energy.
+- [`bubble`](/docs/reference/templates#bubble) with `ext=photon` is the vacuum polarisation.
+- [`vertex-correction`](/docs/reference/templates#vertex-correction) with `ext=photon rung=photon` is the QED vertex
+  correction.
+
+In QCD, `bubble ext=gluon` gives the gluon self-energy. `line=` sets what runs round the loop: gluons, ghosts or quarks.
+
+```feynman source
+bubble ext=gluon line=gluon
++ bubble ext=gluon line=ghost
++ bubble ext=gluon line=fermion top=q bottom="\bar{q}"
+```
+
+## Triangle and box loops
+
+`triangle-loop` draws one line into a loop of three propagators and two lines out. By default it is the Higgs boson
+decaying to two photons through a loop of top quarks. `fusion` turns it round, so the two lines come in on the left
+and the single line leaves on the right, as in Higgs production by gluon fusion.
+
+```feynman source
+triangle-loop
+| triangle-loop fusion legs=gluon top=g bottom=g
+```
+
+- `ext=` and `label=` set the style and label of the single line (`scalar`, `H`).
+- `legs=`, `top=` and `bottom=` set the style and labels of the pair (`photon`, `\gamma`).
+- `loop=` and `loopLabel=` set the style and label of the loop (`fermion`, `t`).
+
+`box-loop` puts four lines on a loop of four propagators. By default it draws light-by-light scattering, γγ → γγ.
+It takes `legs=`, `loop=`, `loopLabel=` and `in1=`, `in2=`, `out1=`, `out2=` for the four legs.
+
+```feynman source
+box-loop loopLabel="e^-"
+```
+
+## Other diagrams
+
+Where no template fits, write the diagram by hand: place the vertices, then draw the lines between them. A line
+written `->` carries an arrow from its first end to its second, and `--` carries none:
+
+```feynman source
+a at (0, 0); b at (2, 0)
+(-1, 0.9) -> a fermion "e^-" above
+a -> (-1, -0.9) fermion "e^+" below
+a -- b photon "\gamma" above
+b -> (3, 0.9) fermion "\mu^-" above
+(3, -0.9) -> b fermion "\mu^+" below
+```
+
+The **By hand** tab under every template above shows that template written out this way, ready to copy and change.
+[Writing diagrams](/docs/guides/writing-diagrams) covers the language, and
+[Particle physics](/docs/examples/particle-physics) has every example of this page.

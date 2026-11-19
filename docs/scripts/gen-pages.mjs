@@ -26,6 +26,7 @@ const GROUPS = {
   'Trions and biexcitons': 'Ladders of three and four lines: trions, biexcitons and your own few-body diagrams.',
   'Two-particle': 'Ladders, the Cooperon, the Bethe–Salpeter equation, the T matrix and the parquet decomposition.',
   'Vertex corrections': 'Vertex corrections to first and second order, and Hedin’s vertex.',
+  'Particle physics': 'Tree-level scattering in the s, t and u channels, Compton scattering, pair annihilation, and QED, QCD, triangle and box loops.',
   'Written by hand': 'Diagrams written vertex by vertex, where no template fits.',
 };
 const groups = [...new Set(EXAMPLES.map((e) => e.group))];

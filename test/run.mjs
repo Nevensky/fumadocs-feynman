@@ -378,6 +378,19 @@ writeFileSync(new URL('index.html', out), `<!doctype html><meta charset="utf-8">
   ok(EXAMPLES.every((ex) => !no(ex.source)), 'no example does');
 }
 
+// ---- particle physics: time left to right, a fermion's arrow along the particle, an antiparticle's back ----
+{
+  const { expand } = await import('../src/index.js');
+  const s = expand('s-channel');
+  ok(/^\(-1\.1, 0\.85\) -> a fermion above "e\^-"$/m.test(s) && /^a -> \(-1\.1, -0\.85\) fermion below "e\^\+"$/m.test(s) && /^\(3\.1, -0\.85\) -> b fermion below "\\mu\^\+"$/m.test(s), 's-channel: the electron comes in towards its vertex, the positron points back out, the outgoing antimuon points in');
+  ok(/^a -- b photon "\\gamma"$/m.test(s) && /^a -- b scalar "H"$/m.test(expand('s-channel prop=scalar label=H')), 'the propagator carries no arrow unless it is a fermion');
+  ok(/^b -> \(-1\.1, -1\.3\)/m.test(expand('t-channel anti')) && /^\(-1\.1, -1\.3\) -> b/m.test(expand('t-channel')), 'anti turns the lower line of the t channel round');
+  ok(['u-channel', 'compton crossed', 'annihilation crossed'].every((x) => / over /.test(expand(x))) && !/ over /.test(expand('t-channel')), 'crossed lines pass over each other');
+  ok(/^a -> b fermion$/m.test(expand('annihilation')) && /^b -> \(-1\.1, -1\.3\) fermion/m.test(expand('annihilation')), 'annihilation: the electron runs down the exchanged line and leaves as the positron, back in time');
+  ok(/^b at \(-1\.3, 0\.78\)$/m.test(expand('triangle-loop fusion')) && /^a -- \(1\.2, 0\) scalar above "H"$/m.test(expand('triangle-loop fusion')), 'fusion mirrors the triangle: the pair comes in on the left, the Higgs leaves on the right');
+  ok(!render('s-channel in1="" in2=""').errors.length && !render('u-channel out1="" out2=""').errors.length && !render('compton label=""').errors.length, 'a leg without a label is given no above, below or side');
+}
+
 // ---- the momentum through the interaction: mom= beside it, towards the vertex where the electron enters ----
 {
   const term = (src) => parse(src).items[0].term;

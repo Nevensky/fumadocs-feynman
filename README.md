@@ -9,6 +9,11 @@ Feynman diagrams for [fumadocs](https://fumadocs.dev), written in ```` ```feynma
 uses Mermaid. They become static SVG at build time. That means no client JavaScript and no layout engine, colours
 that follow the light and dark themes, and mistakes reported as build warnings that name the line.
 
+It is made for many-body (condensed-matter) physics: electrons and holes, phonons, photons, the bare and screened
+Coulomb interaction, and templates for the self-energies, bubbles, ladders and vertices built from them. It draws
+particle physics too: templates for tree-level scattering in the s, t and u channels, Compton scattering, pair
+annihilation, and triangle and box loops, with gluon, scalar and ghost lines besides fermions and photons.
+
 **[Documentation](https://nevensky.github.io/fumadocs-feynman/)**: installation, a quick start, guides, the reference
 and every example.
 

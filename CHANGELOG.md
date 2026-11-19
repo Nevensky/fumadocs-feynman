@@ -20,7 +20,9 @@ The first release.
   - bubbles, RPA chains and excitons;
   - ladders of any number of lines (trions, biexcitons);
   - the T matrix, Bethe–Salpeter and parquet equations, vertex corrections and Hedin's vertex;
-  - the GT self-energy.
+  - the GT self-energy;
+  - for particle physics: tree-level scattering in the s, t and u channels, Compton scattering, pair annihilation,
+    and triangle and box loops.
 - **Momentum arrows.** `mom=` puts a grey arrow beside a line, never on it: arrowheads mark fermions only. On the
   self-energy templates it points towards the vertex where the electron enters (the k+q convention); `momdir=back`
   turns it round.
@@ -29,6 +31,7 @@ The first release.
 - **Checked at build time.** An error becomes a build warning that names the file and line and suggests the fix,
   and an error box on the page. `strict: true` turns warnings into build errors.
 - **Theming.** Every colour is a CSS variable that follows the fumadocs light and dark themes. Labels use the KaTeX
-  fonts when the page loads them. Strokes and type keep their size at any `unit`.
+  fonts when the page loads them, and a prime is set as TeX sets it (`G'` is `G^{\prime}`, raised and smaller), so
+  it reads as a prime in KaTeX's fonts as well as in text fonts. Strokes and type keep their size at any `unit`.
 - **Documentation site** in `docs/`, with installation, a quick start, guides, a reference generated from the code,
   and every example.

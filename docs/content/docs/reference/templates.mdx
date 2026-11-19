@@ -35,6 +35,13 @@ A template draws a whole diagram, or an equation, from one line: its name, then 
 | [`nbody`](#nbody) | Ladder of any number of particle lines, with rungs between any two of them |
 | [`trion`](#trion) | Trion: two electrons and a hole (X⁻), or two holes and an electron (X⁺), every pair interacting |
 | [`biexciton`](#biexciton) | Biexciton: two electrons and two holes, every pair interacting |
+| [`s-channel`](#s-channel) | Tree-level 2 → 2 in the s channel: two particles annihilate into one line, which makes the outgoing pair (e⁻e⁺ → μ⁻μ⁺) |
+| [`t-channel`](#t-channel) | Tree-level 2 → 2 in the t channel: the two particles exchange a line (e⁻μ⁻ → e⁻μ⁻); anti makes the lower one an antiparticle |
+| [`u-channel`](#u-channel) | Tree-level 2 → 2 in the u channel: the t channel with the outgoing particles swapped, for identical ones (e⁻e⁻ → e⁻e⁻) |
+| [`compton`](#compton) | Compton scattering (e⁻γ → e⁻γ): the electron absorbs the photon, then emits one; crossed emits first |
+| [`annihilation`](#annihilation) | Pair annihilation (e⁻e⁺ → γγ): the electron runs from one photon to the other and leaves as the positron; crossed swaps the photons |
+| [`triangle-loop`](#triangle-loop) | Triangle loop: one line into a loop of three propagators, two out (H → γγ through a top quark); fusion turns it round (gg → H) |
+| [`box-loop`](#box-loop) | Box loop: four lines on a loop of four propagators (light-by-light scattering, γγ → γγ) |
 
 ## `propagator`
 
@@ -603,4 +610,155 @@ Biexciton: two electrons and two holes, every pair interacting.
 
 ```feynman source
 biexciton
+```
+
+## `s-channel`
+
+Tree-level 2 → 2 in the s channel: two particles annihilate into one line, which makes the outgoing pair (e⁻e⁺ → μ⁻μ⁺).
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `in` | text | `fermion` |
+| `out` | text | `fermion` |
+| `prop` | text | `photon` |
+| `in1` | text | `e^-` |
+| `in2` | text | `e^+` |
+| `out1` | text | `\mu^-` |
+| `out2` | text | `\mu^+` |
+| `label` | text | `\gamma` |
+| `mom` | text |  |
+| `width` | number | `2` |
+| `vertex` | text | `dot` |
+
+```feynman source
+s-channel prop=boson label="Z^0"
+```
+
+## `t-channel`
+
+Tree-level 2 → 2 in the t channel: the two particles exchange a line (e⁻μ⁻ → e⁻μ⁻); anti makes the lower one an antiparticle.
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `in` | text | `fermion` |
+| `out` | text | `fermion` |
+| `prop` | text | `photon` |
+| `label` | text | `\gamma` |
+| `anti` | flag | `off` |
+| `mom` | text |  |
+| `height` | number | `1.5` |
+| `vertex` | text | `dot` |
+| `in1` | text | `e^-` |
+| `in2` | text | `\mu^-` |
+| `out1` | text | `e^-` |
+| `out2` | text | `\mu^-` |
+
+```feynman source
+t-channel anti in2="e^+" out2="e^+"
+```
+
+## `u-channel`
+
+Tree-level 2 → 2 in the u channel: the t channel with the outgoing particles swapped, for identical ones (e⁻e⁻ → e⁻e⁻).
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `in` | text | `fermion` |
+| `out` | text | `fermion` |
+| `prop` | text | `photon` |
+| `label` | text | `\gamma` |
+| `anti` | flag | `off` |
+| `mom` | text |  |
+| `height` | number | `1.5` |
+| `vertex` | text | `dot` |
+| `in1` | text | `e^-` |
+| `in2` | text | `e^-` |
+| `out1` | text | `e^-` |
+| `out2` | text | `e^-` |
+
+```feynman source
+u-channel
+```
+
+## `compton`
+
+Compton scattering (e⁻γ → e⁻γ): the electron absorbs the photon, then emits one; crossed emits first.
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `line` | text | `fermion` |
+| `boson` | text | `photon` |
+| `in1` | text | `e^-` |
+| `in2` | text | `\gamma` |
+| `out1` | text | `e^-` |
+| `out2` | text | `\gamma` |
+| `label` | text |  |
+| `crossed` | flag | `off` |
+| `width` | number | `1.6` |
+| `vertex` | text | `dot` |
+
+```feynman source
+compton crossed
+```
+
+## `annihilation`
+
+Pair annihilation (e⁻e⁺ → γγ): the electron runs from one photon to the other and leaves as the positron; crossed swaps the photons.
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `line` | text | `fermion` |
+| `boson` | text | `photon` |
+| `in1` | text | `e^-` |
+| `in2` | text | `e^+` |
+| `out1` | text | `\gamma` |
+| `out2` | text | `\gamma` |
+| `label` | text |  |
+| `crossed` | flag | `off` |
+| `height` | number | `1.5` |
+| `vertex` | text | `dot` |
+
+```feynman source
+annihilation
+```
+
+## `triangle-loop`
+
+Triangle loop: one line into a loop of three propagators, two out (H → γγ through a top quark); fusion turns it round (gg → H).
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `ext` | text | `scalar` |
+| `legs` | text | `photon` |
+| `loop` | text | `fermion` |
+| `label` | text | `H` |
+| `top` | text | `\gamma` |
+| `bottom` | text | `\gamma` |
+| `loopLabel` | text | `t` |
+| `fusion` | flag | `off` |
+| `size` | number | `1.3` |
+| `vertex` | text | `dot` |
+
+```feynman source
+triangle-loop fusion legs=gluon top=g bottom=g
+```
+
+## `box-loop`
+
+Box loop: four lines on a loop of four propagators (light-by-light scattering, γγ → γγ).
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `legs` | text | `photon` |
+| `loop` | text | `fermion` |
+| `in1` | text | `\gamma` |
+| `in2` | text | `\gamma` |
+| `out1` | text | `\gamma` |
+| `out2` | text | `\gamma` |
+| `loopLabel` | text |  |
+| `size` | number | `1.4` |
+| `vertex` | text | `dot` |
+
+```feynman source
+box-loop
 ```

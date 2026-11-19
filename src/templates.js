@@ -403,6 +403,52 @@ function chain(t, p) {
   if (ext !== 'none') t.edge(prev, t.pt(x - gap + leg + rimR, 0), ext);
 }
 
+// ---------- particle physics ----------
+// Time runs left to right. A fermion (or ghost) leg carries its arrow along the particle's flow: into the vertex for
+// a particle coming in, out of it for one going out, and the other way round for an antiparticle. Other lines carry
+// none. `at` and `arrowAt` count from the vertex towards the free end, and so does `outward`, the side (left or
+// right) for the label of a leg too steep for above and below.
+const ARROWED = /^(fermion|ghost)/;
+const plainArrow = (style) => (ARROWED.test(style) ? {} : { arrow: 'none' });
+const OTHER_SIDE = { left: 'right', right: 'left' };
+function leg(t, v, x, y, style, label, { incoming, anti = false, at, arrowAt, outward, above, below, ...opts } = {}) {
+  const P = t.pt(x, y), into = incoming !== anti, o = { ...plainArrow(style), label, ...opts };
+  // a label's place only when there is a label: above or below one without is an error
+  if (label) Object.assign(o, above ? { above } : {}, below ? { below } : {}, outward ? { side: into ? OTHER_SIDE[outward] : outward } : {});
+  if (at != null) o.pos = into ? 1 - at : at;
+  if (arrowAt != null && ARROWED.test(style)) o.arrowPos = into ? 1 - arrowAt : arrowAt;
+  if (into) t.edge(P, v, style, o); else t.edge(v, P, style, o);
+}
+/** A line between two vertices: an arrow only on a fermion or ghost, an optional momentum arrow beside it. */
+const inner = (p, label, extra = {}) => ({ ...plainArrow(p.prop), label, ...(p.mom ? { mom: p.mom } : {}), ...extra });
+// external legs reach LX across and LY up or down from their vertex
+const LX = 1.1, LY = 0.85;
+
+/**
+ * Two vertices one above the other, a line exchanged between them: the t channel, or with the outgoing lines
+ * swapped over each other the u channel. The upper line runs in1 -> out1, the lower in2 -> out2; anti makes the
+ * lower one an antiparticle. With a fermion exchanged, the fermion runs in1 -> a -> b and leaves as anti in2.
+ */
+function exchange(t, p, crossed) {
+  // the labels sit towards the free ends: at the middle of these short legs, the two on one side run together
+  const h = p.height / 2, a = t.node('a', 0, h, p.vertex), b = t.node('b', 0, -h, p.vertex), dy = 0.55, at = 0.8;
+  leg(t, a, -LX, h + dy, p.in, p.in1, { incoming: true, above: true, at });
+  leg(t, b, -LX, -h - dy, p.in, p.in2, { incoming: true, anti: p.anti, below: true, at });
+  // crossed lines meet to the right of the exchanged line, so its label goes to the left
+  t.edge(a, b, p.prop, inner(p, p.label, crossed ? { side: 'right' } : {}));
+  if (!crossed) {
+    leg(t, a, LX, h + dy, p.out, p.out1, { incoming: false, above: true, at });
+    leg(t, b, LX, -h - dy, p.out, p.out2, { incoming: false, anti: p.anti, below: true, at });
+  } else {
+    // the upper vertex sends its line to the lower right, the lower one to the upper right, over the first
+    const X = LX + 0.5;
+    leg(t, a, X, -h - dy, p.out, p.out1, { incoming: false, outward: 'left', at: 0.86, arrowAt: 0.72 });
+    leg(t, b, X, h + dy, p.out, p.out2, { incoming: false, anti: p.anti, outward: 'right', at: 0.86, arrowAt: 0.72, over: true });
+  }
+  return t;
+}
+const EXCHANGE = { in: 'fermion', out: 'fermion', prop: 'photon', label: '\\gamma', anti: false, mom: '', height: 1.5, vertex: 'dot' };
+
 export const TEMPLATES = {
   // ---------------- propagators and Dyson equations ----------------
   propagator: {
@@ -850,6 +896,97 @@ export const TEMPLATES = {
     title: 'Biexciton: two electrons and two holes, every pair interacting', example: 'biexciton',
     params: { lines: 'e h e h', rungs: '12+34 13 24 23 14 12+34', labels: 'auto', rung: 'screened', rungLabel: 'W', gap: 0.85, spacing: 0.8, line: 'fermion', dressed: false, dir: 'right' },
     build(p) { const t = term(`${nameOf(p.lines)} with rungs ${p.rungs}`); rails(t, p); return t; }
+  },
+
+  // ---------------- particle physics: tree level, and triangle and box loops ----------------
+  's-channel': {
+    title: 'Tree-level 2 → 2 in the s channel: two particles annihilate into one line, which makes the outgoing pair (e⁻e⁺ → μ⁻μ⁺)',
+    example: 's-channel prop=boson label="Z^0"',
+    params: { in: 'fermion', out: 'fermion', prop: 'photon', in1: 'e^-', in2: 'e^+', out1: '\\mu^-', out2: '\\mu^+', label: '\\gamma', mom: '', width: 2, vertex: 'dot' },
+    build(p) {
+      const t = term(`s-channel diagram: a ${p.prop} line between the incoming and the outgoing pair`), w = p.width;
+      const a = t.node('a', 0, 0, p.vertex), b = t.node('b', w, 0, p.vertex);
+      leg(t, a, -LX, LY, p.in, p.in1, { incoming: true, above: true });
+      leg(t, a, -LX, -LY, p.in, p.in2, { incoming: true, anti: true, below: true });
+      t.edge(a, b, p.prop, inner(p, p.label));
+      leg(t, b, w + LX, LY, p.out, p.out1, { incoming: false, above: true });
+      leg(t, b, w + LX, -LY, p.out, p.out2, { incoming: false, anti: true, below: true });
+      return t;
+    }
+  },
+  't-channel': {
+    title: 'Tree-level 2 → 2 in the t channel: the two particles exchange a line (e⁻μ⁻ → e⁻μ⁻); anti makes the lower one an antiparticle',
+    example: 't-channel anti in2="e^+" out2="e^+"',
+    params: { ...EXCHANGE, in1: 'e^-', in2: '\\mu^-', out1: 'e^-', out2: '\\mu^-' },
+    build(p) { return exchange(term(`t-channel diagram: a ${p.prop} line exchanged between two particle lines`), p, false); }
+  },
+  'u-channel': {
+    title: 'Tree-level 2 → 2 in the u channel: the t channel with the outgoing particles swapped, for identical ones (e⁻e⁻ → e⁻e⁻)',
+    example: 'u-channel',
+    params: { ...EXCHANGE, in1: 'e^-', in2: 'e^-', out1: 'e^-', out2: 'e^-' },
+    build(p) { return exchange(term(`u-channel diagram: a ${p.prop} line exchanged, the outgoing particles swapped`), p, true); }
+  },
+  compton: {
+    title: 'Compton scattering (e⁻γ → e⁻γ): the electron absorbs the photon, then emits one; crossed emits first',
+    example: 'compton crossed',
+    params: { line: 'fermion', boson: 'photon', in1: 'e^-', in2: '\\gamma', out1: 'e^-', out2: '\\gamma', label: '', crossed: false, width: 1.6, vertex: 'dot' },
+    build(p) {
+      const t = term(`Compton scattering${p.crossed ? ', crossed: the photon emitted before the other is absorbed' : ''}`), w = p.width;
+      const a = t.node('a', 0, 0, p.vertex), b = t.node('b', w, 0, p.vertex);
+      leg(t, a, -LX, 0, p.line, p.in1, { incoming: true, below: true });
+      t.edge(a, b, p.line, { ...plainArrow(p.line), label: p.label, ...(p.label ? { below: true } : {}) });
+      leg(t, b, w + LX, 0, p.line, p.out1, { incoming: false, below: true });
+      if (!p.crossed) {
+        leg(t, a, -1.05, 0.95, p.boson, p.in2, { incoming: true, above: true });
+        leg(t, b, w + 1.05, 0.95, p.boson, p.out2, { incoming: false, above: true });
+      } else {
+        // the photon coming in reaches b, the one going out leaves a: they cross over the electron line
+        leg(t, b, -0.35, 1.35, p.boson, p.in2, { incoming: true, above: true, at: 0.88 });
+        leg(t, a, w + 0.35, 1.35, p.boson, p.out2, { incoming: false, above: true, at: 0.88, over: true });
+      }
+      return t;
+    }
+  },
+  annihilation: {
+    title: 'Pair annihilation (e⁻e⁺ → γγ): the electron runs from one photon to the other and leaves as the positron; crossed swaps the photons',
+    example: 'annihilation',
+    params: { line: 'fermion', boson: 'photon', in1: 'e^-', in2: 'e^+', out1: '\\gamma', out2: '\\gamma', label: '', crossed: false, height: 1.5, vertex: 'dot' },
+    build(p) {
+      const t = term(`pair annihilation into two ${p.boson} lines${p.crossed ? ', crossed' : ''}`);
+      return exchange(t, { ...p, in: p.line, out: p.boson, prop: p.line, anti: true, mom: '' }, p.crossed);
+    }
+  },
+  'triangle-loop': {
+    title: 'Triangle loop: one line into a loop of three propagators, two out (H → γγ through a top quark); fusion turns it round (gg → H)',
+    example: 'triangle-loop fusion legs=gluon top=g bottom=g',
+    params: { ext: 'scalar', legs: 'photon', loop: 'fermion', label: 'H', top: '\\gamma', bottom: '\\gamma', loopLabel: 't', fusion: false, size: 1.3, vertex: 'dot' },
+    build(p) {
+      // built as a decay, the single line coming in on the left, and mirrored for fusion
+      const t = term(`triangle loop of ${p.loop} lines: one ${p.ext} line and two ${p.legs} lines${p.fusion ? ' coming in' : ' going out'}`);
+      const s = p.size, h = 0.6 * s, a = t.node('a', 0, 0, p.vertex), b = t.node('b', s, h, p.vertex), c = t.node('c', s, -h, p.vertex);
+      leg(t, a, -LX - 0.1, 0, p.ext, p.label, { incoming: !p.fusion, above: true });
+      const lp = { ...plainArrow(p.loop) };
+      t.edge(a, b, p.loop, { ...lp, label: p.loopLabel }); t.edge(b, c, p.loop, lp); t.edge(c, a, p.loop, lp);
+      leg(t, b, s + LX, h + 0.6, p.legs, p.top, { incoming: p.fusion, above: true });
+      leg(t, c, s + LX, -h - 0.6, p.legs, p.bottom, { incoming: p.fusion, below: true });
+      return p.fusion ? mirror(t) : t;
+    }
+  },
+  'box-loop': {
+    title: 'Box loop: four lines on a loop of four propagators (light-by-light scattering, γγ → γγ)',
+    example: 'box-loop',
+    params: { legs: 'photon', loop: 'fermion', in1: '\\gamma', in2: '\\gamma', out1: '\\gamma', out2: '\\gamma', loopLabel: '', size: 1.4, vertex: 'dot' },
+    build(p) {
+      const t = term(`box loop of ${p.loop} lines with four ${p.legs} lines`), s = p.size, h = s / 2;
+      const a = t.node('a', 0, h, p.vertex), b = t.node('b', s, h, p.vertex), c = t.node('c', s, -h, p.vertex), d = t.node('d', 0, -h, p.vertex);
+      const lp = { ...plainArrow(p.loop) };
+      t.edge(a, b, p.loop, { ...lp, label: p.loopLabel }); t.edge(b, c, p.loop, lp); t.edge(c, d, p.loop, lp); t.edge(d, a, p.loop, lp);
+      leg(t, a, -0.85, h + 0.75, p.legs, p.in1, { incoming: true, above: true });
+      leg(t, d, -0.85, -h - 0.75, p.legs, p.in2, { incoming: true, below: true });
+      leg(t, b, s + 0.85, h + 0.75, p.legs, p.out1, { incoming: false, above: true });
+      leg(t, c, s + 0.85, -h - 0.75, p.legs, p.out2, { incoming: false, below: true });
+      return t;
+    }
   }
 };
 

@@ -218,6 +218,52 @@ caption "\\Sigma = iGW\\Gamma"
 | bubble gamma="\\Gamma" top=G bottom=G dressed ext=screened
 caption "P = −iGG\\Gamma"` },
 
+  // ---------------- particle physics ----------------
+  { group: 'Particle physics', id: 'pp-s-channel', title: 'e⁻e⁺ → μ⁻μ⁺ through a photon or a Z',
+    note: 'Time runs left to right. The electron comes in with its arrow towards the vertex, the positron with its arrow pointing back out, and the muon pair leaves the same way. prop= sets the line in the middle.',
+    source: `s-channel
+caption "photon"
+| s-channel prop=boson label="Z^0"
+caption "Z boson"` },
+  { group: 'Particle physics', id: 'pp-moller', title: 'Møller scattering: the t and u channels',
+    note: 'Two electrons exchange a photon. The outgoing electrons cannot be told apart, so the u-channel diagram, with the two swapped, comes with a relative minus sign.',
+    source: `t-channel in2="e^-" out2="e^-"
+- u-channel` },
+  { group: 'Particle physics', id: 'pp-bhabha', title: 'Bhabha scattering: the t and s channels',
+    note: 'anti makes the lower line of the t-channel diagram a positron, its arrows running right to left.',
+    source: `t-channel anti in2="e^+" out2="e^+"
+- s-channel out1="e^-" out2="e^+"` },
+  { group: 'Particle physics', id: 'pp-compton', title: 'Compton scattering',
+    note: 'The electron absorbs the photon and then emits one, or, crossed, emits first. The two photons then cross over the electron line.',
+    source: `compton
++ compton crossed` },
+  { group: 'Particle physics', id: 'pp-annihilation', title: 'Pair annihilation into two photons',
+    note: 'The electron line runs from the incoming electron to the incoming positron, giving off a photon at each vertex. crossed swaps the photons.',
+    source: `annihilation
++ annihilation crossed` },
+  { group: 'Particle physics', id: 'pp-qed-loops', title: 'The QED loops at one loop',
+    note: 'These come from the many-body templates with a photon in place of the phonon or the Coulomb line: the electron self-energy, the vacuum polarisation and the vertex correction.',
+    source: `fan-migdal phonon=photon G="e^-" F="\\gamma"
+caption "electron self-energy"
+| bubble ext=photon top="e^-" bottom="e^+"
+caption "vacuum polarisation"
+| vertex-correction ext=photon rung=photon
+caption "vertex correction"` },
+  { group: 'Particle physics', id: 'pp-gluon-loops', title: 'The gluon self-energy: gluon, ghost and quark loops',
+    note: 'bubble with line=gluon, line=ghost or line=fermion. The ghost loop carries arrows, as ghosts are fermions.',
+    source: `bubble ext=gluon line=gluon
++ bubble ext=gluon line=ghost
++ bubble ext=gluon line=fermion top=q bottom="\\bar{q}"` },
+  { group: 'Particle physics', id: 'pp-triangle', title: 'Triangle loops: H → γγ and gluon fusion',
+    note: 'The Higgs boson decays to two photons through a loop of top quarks. fusion turns the triangle round: two gluons come in and make the Higgs.',
+    source: `triangle-loop
+caption "H \\to \\gamma\\gamma"
+| triangle-loop fusion legs=gluon top=g bottom=g
+caption "gg \\to H"` },
+  { group: 'Particle physics', id: 'pp-box', title: 'Light-by-light scattering',
+    note: 'Four photons on a loop of four electron propagators: γγ → γγ, which classical electrodynamics forbids.',
+    source: `box-loop loopLabel="e^-"` },
+
   // ---------------- hand-written ----------------
   { group: 'Written by hand', id: 'hedin-baym', title: 'Hedin–Baym: W = Wᵉ + Wᵉ χⁱᵒⁿ Wᵉ',
     source: `(0, 0) -- (1.8, 0) screened "W" above
