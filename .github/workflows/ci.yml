@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # the oldest Node the package supports (engines), up to the current LTS; the release job runs on 24
+        # the oldest Node the package supports (engines), up to the current LTS
         node: [18, 20, 22, 24, 26]
     steps:
       - uses: actions/checkout@v7
