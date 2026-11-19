@@ -97,6 +97,12 @@ site-wide notation, register a component made with [`createFeynman`](#createfeyn
       description:
         'Draw the drafting grid of whole units, with the name of every vertex, as a grid statement in the source does.',
     },
+    copy: {
+      type: 'boolean',
+      default: 'false',
+      description:
+        'A copy button at the top right of the diagram, shown on hover and on keyboard focus. It puts the diagram on the clipboard as a PNG and as SVG markup. The remark plugin sets it on every block with its copy option.',
+    },
   }}
 />
 
@@ -125,12 +131,21 @@ site-wide notation, register a component made with [`createFeynman`](#createfeyn
   groups: its lines under the diagram, and the vertex names over it.
 - When the source has errors, the `div` holds an error box instead (class `feyn-error`, `role="alert"`). It lists
   the errors with their line numbers above the numbered source.
+- With `copy`, `div.feyn-root` holds the figure in a `div` of its own, followed by `button.feyn-copy`. The button
+  is hidden until the pointer is over the diagram or the button has keyboard focus, and shows on touch screens.
 
 ## A server component
 
 `Feynman` has no hooks, no effects and no `'use client'`. In React Server Components, as fumadocs uses them on
 Next.js, it renders on the server, at build time for static pages, and the browser receives plain HTML. No
 JavaScript ships for the diagrams.
+
+The one exception is the copy button you can turn on with `copy`. It is a small client component of its own
+(`react/copy.js` in the package), rendered beside the server's SVG. It builds what it
+copies from the SVG already on the page, so no diagram is sent twice. On the clipboard it puts a PNG at three times
+the size, for slides and documents, and the SVG markup as text, for editors, Figma and Inkscape. The copy keeps the
+light colours, whichever theme the page shows, and draws labels in the system's serif fonts, as a picture cannot
+use the page's web fonts.
 
 - Colours are CSS variables, so switching between light and dark needs no re-render.
 - The markup depends only on the props, so it is the same wherever it renders.

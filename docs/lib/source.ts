@@ -10,7 +10,7 @@ const docs = defineDocs({
   dir: 'content/docs',
   docs: {
     // keep the fumadocs defaults and add ```feynman blocks (a collection-level mdxOptions replaces the defaults)
-    mdxOptions: applyMdxPreset({ remarkPlugins: (defaults) => [remarkFeynman, ...defaults] }),
+    mdxOptions: applyMdxPreset({ remarkPlugins: (defaults) => [[remarkFeynman, { copy: true }], ...defaults] }),
     schema: pageSchema,
     postprocess: {
       includeProcessedMarkdown: true,

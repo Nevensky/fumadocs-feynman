@@ -68,6 +68,12 @@ nothing else.
       default: 'false',
       description: 'Do not print diagram errors on the console. They are still recorded as messages on the file.',
     },
+    copy: {
+      type: 'boolean',
+      default: 'false',
+      description:
+        'Give every diagram a copy button that shows when the pointer is over it. It copies the diagram as a picture and as SVG markup. The button is a small client component, the only JavaScript the diagrams ship; a fence can still turn it off with copy=false.',
+    },
   }}
 />
 
@@ -85,6 +91,7 @@ The fence line can carry these keys after the language:
 | `unit=36` | Pixels per unit for this block. |
 | `id="…"` | The prefix of the SVG's ids (the hatch pattern of `hatched` vertices). Without it, a hash of the source. |
 | `source` | A bare word: the diagram is followed by its source. |
+| `copy` | A bare word: the diagram gets a copy button. `copy=false` leaves it out when the plugin's `copy` option is on. |
 
 A value goes in double quotes, in single quotes, or bare when it has no spaces. Other `key=value` pairs are ignored.
 

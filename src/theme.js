@@ -69,6 +69,12 @@ export function themeCSS({ fumadocs = true, media = true } = {}) {
     block('.dark, [data-theme="dark"]', D),
     '.feyn { margin: 1.25rem 0; }',
     '.feyn svg { max-width: 100%; height: auto; overflow: visible; }',
+    // the copy button (react/copy.js): top right of the figure, shown on hover and on keyboard focus, always on touch
+    '.feyn-root { position: relative; }',
+    '.feyn-copy { position: absolute; top: 0; right: 0; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 1px solid color-mix(in srgb, var(--feyn-muted) 30%, transparent); border-radius: 6px; background: var(--feyn-surface); color: var(--feyn-muted); cursor: pointer; opacity: 0; transition: opacity 0.15s, color 0.15s; }',
+    '.feyn-root:hover .feyn-copy, .feyn-copy:focus-visible, .feyn-copy[data-state="done"], .feyn-copy[data-state="failed"] { opacity: 1; }',
+    '.feyn-copy:hover { color: var(--feyn-ink); }',
+    '@media (hover: none) { .feyn-copy { opacity: 0.7; } }',
     '.feyn figcaption, .feyn .feyn-cap { font-size: 0.85em; color: var(--feyn-muted); text-align: center; margin-top: 0.4rem; }',
     '.feyn-error { border: 1px solid #c2410c; border-radius: 6px; padding: 0.6rem 0.8rem; font: 0.8rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; color: #c2410c; overflow-x: auto; }'
   ].filter(Boolean).join('\n\n') + '\n';

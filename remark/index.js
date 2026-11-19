@@ -9,7 +9,7 @@
 //   // fumadocs-mdx 11–14 (source.config.ts)
 //   export default defineConfig({ mdxOptions: { remarkPlugins: [remarkFeynman] } });
 //
-// Options: { lang = 'feynman', component = 'Feynman', styles, unit, strict = false, validate = true, source = false, quiet = false }
+// Options: { lang = 'feynman', component = 'Feynman', styles, unit, strict = false, validate = true, source = false, quiet = false, copy = false }
 // The fence meta can carry caption="...", title="...", unit=36 and id="...", and the bare word source.
 // Diagram errors are reported against the .mdx file at build time (as errors with strict: true).
 //
@@ -21,7 +21,7 @@
 
 import { render, expand, templatesIn } from '../src/index.js';
 
-const META_KEYS = new Set(['caption', 'title', 'unit', 'id']);
+const META_KEYS = new Set(['caption', 'title', 'unit', 'id', 'copy']);
 
 function parseMeta(meta) {
   const out = [];
@@ -99,9 +99,11 @@ export function remarkFeynman(options = {}) {
       }
       const attributes = [{ type: 'mdxJsxAttribute', name: 'chart', value: chart }];
       for (const [k, v] of meta) attributes.push({ type: 'mdxJsxAttribute', name: k, value: v });
-      parent.children[index] = { type: 'mdxJsxFlowElement', name, attributes, children: [], position: node.position };
-      // the bare word source, not one inside a quoted value such as caption="the source term"
+      // the bare words source and copy, not ones inside a quoted value such as caption="the source term"
       const bare = String(node.meta || '').replace(/"[^"]*"|'[^']*'/g, '');
+      // the copy button: the fence's copy=true|false wins, then its bare word copy, then the plugin's option
+      if (!meta.some(([k]) => k === 'copy') && (options.copy === true || /(^|\s)copy(\s|$)/.test(bare))) attributes.push({ type: 'mdxJsxAttribute', name: 'copy', value: null });
+      parent.children[index] = { type: 'mdxJsxFlowElement', name, attributes, children: [], position: node.position };
       if (options.source || /(^|\s)source(\s|$)/.test(bare)) {
         const { nodes, error } = sourceBlocks(chart, lang, options.styles, unit);
         // a diagram with errors has been reported already; a valid one that cannot be written out is a bug to report

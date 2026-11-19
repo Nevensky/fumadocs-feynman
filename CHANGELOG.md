@@ -26,6 +26,9 @@ The first release.
 - **Momentum arrows.** `mom=` puts a grey arrow beside a line, never on it: arrowheads mark fermions only. On the
   self-energy templates it points towards the vertex where the electron enters (the k+q convention); `momdir=back`
   turns it round.
+- **Copy button.** With the plugin's `copy` option (or a fence's bare word `copy`), a button at the top right of a
+  diagram shows on hover and copies it as a PNG and as SVG markup. It is a small client component and off by
+  default, so that out of the box no JavaScript ships.
 - **By hand.** `expand()` writes any block out vertex by vertex. With `source` in the fence meta, a block shows its
   source in Template and By hand tabs.
 - **Checked at build time.** An error becomes a build warning that names the file and line and suggests the fix,

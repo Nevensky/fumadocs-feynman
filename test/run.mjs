@@ -1,5 +1,6 @@
 // node test/run.mjs  — renders every example, checks conventions and error reporting, writes test/out/*.svg
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { render, renderSVG, parse, themeCSS, Term, renderModel } from '../src/index.js';
 import { parseLabel } from '../src/text.js';
 import * as G from '../src/geometry.js';
@@ -519,6 +520,12 @@ writeFileSync(new URL('index.html', out), `<!doctype html><meta charset="utf-8">
 {
   const { remarkFeynman } = await import('../remark/index.js');
   const run = (meta, value, opts = {}) => { const tree = { type: 'root', children: [{ type: 'code', lang: 'feynman', meta, value }] }; remarkFeynman({ quiet: true, ...opts })(tree, { message() {}, fail() {} }); return tree.children; };
+  const copyOf = (meta, opts) => run(meta, 'fock', opts)[0].attributes.filter((a) => a.name === 'copy').map((a) => a.value);
+  ok(!copyOf('').length && JSON.stringify(copyOf('', { copy: true })) === '[null]' && JSON.stringify(copyOf('copy')) === '[null]'
+    && JSON.stringify(copyOf('copy=false', { copy: true })) === '["false"]' && !copyOf('caption="copy this"').length,
+    'copy: off by default; the option or a bare word turns it on, a fence\'s copy=false wins, a quoted copy is a caption');
+  const rc = await readFile(new URL('../react/copy.js', import.meta.url), 'utf8'), ri = await readFile(new URL('../react/index.js', import.meta.url), 'utf8');
+  ok(rc.startsWith("'use client';") && !/^'use client'/.test(ri) && /copy = false/.test(ri), 'the copy button is the one client component, and off unless asked for');
   const k = run('source', 'fock');
   const tabs = k[1], [list, tpl, hand] = tabs?.children ?? [];
   ok(k.length === 2 && k[0].name === 'Feynman' && tabs.name === 'CodeBlockTabs' && tabs.data?._code_tab_visited

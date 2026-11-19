@@ -22,6 +22,11 @@ export interface RemarkFeynmanOptions {
   source?: boolean;
   /** Do not echo diagram errors on the console. */
   quiet?: boolean;
+  /**
+   * Give every diagram a copy button that shows on hover (default false; a block can ask with the bare word copy in
+   * its fence, or refuse with copy=false). The button is a small client component: without it, no JavaScript ships.
+   */
+  copy?: boolean;
 }
 
 // Typed loosely so that it fits any unified version's plugin type without depending on mdast types.
