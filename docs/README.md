@@ -25,7 +25,8 @@ npm run build
 ## Deploy
 
 - **GitHub Pages:** `.github/workflows/docs.yml` builds a static site on every push to `main` and publishes it.
-  Enable it once in the repository settings: Pages → Build and deployment → Source: GitHub Actions. The build
+  Enable it once in the repository settings: Pages → Build and deployment → Source: GitHub Actions (not "Deploy
+  from a branch", which runs GitHub's own Jekyll build over the repository and fails on the MDX pages). The build
   sets `DOCS_EXPORT=1` (a static export into `out/`), `NEXT_PUBLIC_BASE_PATH=/<repository>` and
   `NEXT_PUBLIC_SITE_URL=https://<owner>.github.io`. Search runs in the browser on an index built at build time.
 - **A Node host** (Vercel or similar): `npm run build` and `npm start`, with `docs/` as the project's root.
