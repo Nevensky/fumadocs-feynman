@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # the package has no dependencies, so there is nothing to install
+      - run: npm test
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Lint the package (exports, files, types)
+        run: npx --yes publint@0.3 --strict
+      - name: Check the type declarations
+        run: |
+          npm install --no-save --no-package-lock typescript@5 @types/react@19
+          npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module nodenext --moduleResolution nodenext types/index.d.ts types/react.d.ts types/remark.d.ts
+      - name: List what would be published
+        run: npm pack --dry-run
+      - name: Install the packed package in a new project and use it
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          mkdir "$RUNNER_TEMP/consumer" && cd "$RUNNER_TEMP/consumer"
+          npm init -y >/dev/null && npm pkg set type=module
+          npm install "$RUNNER_TEMP"/fumadocs-feynman-*.tgz react@19 react-dom@19
+          node --input-type=module -e "
+            const { render, expand } = await import('fumadocs-feynman');
+            const { remarkFeynman } = await import('fumadocs-feynman/remark');
+            const { Feynman } = await import('fumadocs-feynman/react');
+            const { renderToStaticMarkup } = await import('react-dom/server');
+            const { createElement } = await import('react');
+            const r = render('fan-migdal dressed');
+            const html = renderToStaticMarkup(createElement(Feynman, { chart: 'fock vertical mom=q', injectStyle: false }));
+            if (r.errors.length || !r.svg.startsWith('<svg') || !html.includes('<svg') || typeof remarkFeynman !== 'function' || !expand('fock')) process.exit(1);
+            console.log('the packed package installs, imports and renders');
+          "
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: npm ci
+        working-directory: docs
+      - name: Check that the generated pages are up to date
+        run: |
+          node docs/scripts/gen-pages.mjs
+          git diff --exit-code -- docs/content/docs
+      - name: Compile every page (strict)
+        run: npm run check
+        working-directory: docs
+      - run: npm run build
+        working-directory: docs

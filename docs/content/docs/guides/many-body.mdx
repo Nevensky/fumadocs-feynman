@@ -1,0 +1,279 @@
+---
+title: Many-body diagrams
+description: Draw polarization bubbles and RPA screening, excitons and ladders, four-point vertices, vertex corrections, trions and biexcitons, and the GT self-energy.
+---
+
+These templates draw the diagrams in which two or more particles propagate together: the polarization and its RPA
+series, excitons and the ladders of the Bethe–Salpeter equation, four-point vertices and their equations, vertex
+corrections, ladders of three and four particles, and the GT self-energy. Electrons are G (G⁰ when free), and a
+double line is a dressed propagator; W is the screened interaction, v the bare Coulomb one, D the photon and F the
+phonon. [Using templates](/docs/guides/templates) explains how to write options and how to add statements of your
+own, and the [template reference](/docs/reference/templates) lists every option with its default.
+
+## Polarization bubble
+
+The polarization P describes the electron–hole pairs that a perturbation creates. In the bubble, two electron
+lines join its two vertices, one running forward (the electron) and one back (the hole). Without vertex corrections
+it is P = −iGG, the bubble of the random-phase approximation (RPA).
+
+```feynman source
+bubble vertex=charge ext=coulomb extLabel=v
+| bubble vertex=current ext=photon extLabel=D
+```
+
+- `ext=` sets the external lines: `coulomb` (the default), `photon`, `phonon`, `screened`, or `none` to leave
+  them out. `extLabel=` labels the one on the left.
+- `vertex=` sets both vertices, and `left=` and `right=` one of them: `charge` for the density ρ, which couples to
+  a Coulomb line, `current` for the current j, which couples to a photon, `eph`, `dipole` and `spin` for the other
+  couplings, and `disk` for a screened vertex. [Notation](/docs/guides/notation#matrix-elements-on-vertices) labels
+  `a0` and `b0` with the matrix elements ρ and j.
+- `top=` and `bottom=` label the two electron lines, `dressed` draws them as G, and `label=` writes a name inside
+  the bubble (not with `ladder=` or `gamma=`).
+- `width=` sets the width of the bubble (1.6 units); with `ladder=`, the bubble is at least as wide as its rungs
+  need.
+- `ladder=` puts rungs inside, `rung=` and `rungLabel=` set their style and label (`screened`, W); `exciton`
+  below is this ladder with other defaults.
+
+With phonon lines, the bubble is the phonon self-energy Π. One of its vertices is bare and the other screened (a
+disk): with the bubble between them, screening both would count the screening twice.
+
+```feynman source
+bubble ext=phonon left=dot right=disk dressed top=G bottom=G
+```
+
+`gamma=` closes the bubble with Hedin's vertex Γ instead of a bare vertex, as in Hedin's equations,
+P = −iGGΓ; Γ = 1 gives back the RPA bubble. `gcolor=` sets the colour of the triangle (`c4`, teal).
+
+```feynman source
+bubble gamma="\Gamma" top=G bottom=G dressed ext=screened
+```
+
+## RPA screening
+
+The RPA sums the bubbles into the screened interaction, W = v + vPv + vPvPv + … = v + vPW. `rpa` draws a chain of
+`n=` bubbles (3) joined by `link=` lines (`coulomb`); `linkLabel=` (v) labels the first link. The external lines
+take the style of the links unless `ext=` sets another, and `extLabel=` labels the first. Most options of `bubble`
+(`vertex`, `dressed`, `ladder`, …) apply to every bubble, and its labels (`top`, `bottom`, `rungLabel`) to the
+first. As terms of an equation, the chains draw the series:
+
+```feynman source
+propagator style=coulomb dressed label=W
+= propagator style=coulomb label=v
++ rpa n=1 extLabel=v
++ rpa n=2 extLabel=v
++ ...
+```
+
+The [Dyson equations](/docs/examples/dyson-equations) examples show this series next to the Dyson equations for G,
+F and D.
+
+## Excitons
+
+An exciton is an electron and a hole bound by their screened attraction. In the polarization it shows as a ladder
+of W between the two lines of the bubble: the Bethe–Salpeter equation sums the ladder, and its bound states are the
+excitons. `exciton` draws the bubble with `n=` rungs (3). Its vertices are current vertices and its external lines
+photons D, as in optical absorption. The flag `charge` sets charge vertices and screened external lines
+(`vertex=charge ext=screened extLabel=W`), and the flag `current` sets the defaults back.
+
+```feynman source
+exciton n=3
+caption "current"
+| exciton n=3 charge
+caption "charge"
+```
+
+The kernel of the Bethe–Salpeter equation also has an exchange part v̄, the Coulomb interaction without its
+long-range part, in which the pair annihilates and a new one is created. It joins ladder bubbles into a chain:
+`bubbles=` sets how many, and `link=` and `linkLabel=` the line between them (without them, the links repeat the
+external line).
+
+```feynman source
+exciton charge n=2 bubbles=2 link=coulomb linkLabel="\bar{v}" ext=coulomb extLabel=v
+```
+
+## Ladders
+
+`ladder` draws two lines that exchange `n=` interactions (3).
+
+- In the particle–hole channel (`ph`, the default) the upper line runs right and the lower one left: the
+  electron–hole ladder of the Bethe–Salpeter equation.
+- In the particle–particle channel (`pp`) both run right: two particles that scatter again and again, as in the
+  T matrix. With phonon rungs this is the Cooper channel of superconductivity.
+
+```feynman source
+ladder n=4 top=G bottom=G
+| ladder n=3 pp rung=phonon rungLabel=F
+```
+
+`rung=` and `rungLabel=` set the rungs (`screened`, W), `top=` and `bottom=` label the lines, `h=` is the distance
+between the lines and `spacing=` the distance between rungs, in units.
+
+`crossed` draws the maximally crossed ladder, in which the first vertex of the upper line is joined to the last of
+the lower one, and so on. With impurity lines between a retarded electron G<sup>R</sup> and an advanced one
+G<sup>A</sup>, its sum is the Cooperon, which gives the weak-localization correction to the conductivity.
+`ladder crossed` crosses the rungs of any ladder.
+
+```feynman source
+crossed n=4
+```
+
+## Four-point vertices
+
+`box` draws a four-point vertex with a leg on each corner. `label=` names it (Γ), `color=` sets its colour, and the
+flags `ph` and `pp` set the way the lower legs run.
+
+```feynman source
+box
+| box pp
+```
+
+`bse` draws the Bethe–Salpeter equation for the two-particle correlation function, L = L⁰ + L⁰KL: L is two
+independent propagators, L⁰, plus L⁰ followed by the kernel K and by L again. For excitons in the GW approximation,
+K holds the exchange v̄ and the screened direct interaction W. `L=` and `K=` set the labels, and `pp` the channel.
+
+```feynman source
+bse
+```
+
+`tmatrix` draws the T-matrix equation, T = V + VGGT: the ladder of a bare interaction V (`interaction=coulomb`)
+summed in the particle–particle channel (`pp`, the default; `ph` for the other). `G=` labels the two propagators of
+the last term.
+
+```feynman source
+tmatrix
+```
+
+`parquet` draws the parquet decomposition of the full vertex F. Each diagram of F is either fully irreducible, Λ,
+or reducible in exactly one of the three two-particle channels: particle–hole (Φ<sub>ph</sub>), transverse
+particle–hole (Φ<sub>p̄h̄</sub>) and particle–particle (Φ<sub>pp</sub>). Each reducible part is a vertex irreducible
+in its channel, joined to F by two lines in that channel. `captions=false` leaves out the captions.
+
+```feynman source
+parquet
+```
+
+The [two-particle examples](/docs/examples/two-particle) collect these.
+
+## Vertex corrections
+
+`vertex-correction` draws a three-point vertex: the external line arrives at `v`, an electron comes in on the
+lower line and leaves on the upper one, and `n=` interactions (1) run across the two electron lines. On the left,
+the electron–photon vertex corrected by a phonon; on the right, the Coulomb vertex corrected by W.
+
+```feynman source
+vertex-correction ext=photon rung=phonon rungLabel=F
+| vertex-correction ext=coulomb rung=screened rungLabel=W
+```
+
+Migdal's theorem makes the phonon correction small, of order √(m/M), when the momentum transfer is large
+(v<sub>F</sub>q ≫ ω). A photon brings q ≈ 0, where the theorem does not hold.
+
+With `n=2` and more, the interactions form a ladder across the vertex, and the flag `crossed` crosses them (the
+flag `ladder` is the default):
+
+```feynman source
+vertex-correction n=2 ext=screened rung=screened rungLabel=W
+caption "ladder"
+| vertex-correction n=2 crossed ext=screened rung=screened
+caption "crossed"
+```
+
+`hedin-vertex` draws Hedin's equation for the vertex function, Γ = 1 + (δΣ/δG) GGΓ: a Bethe–Salpeter equation with
+the kernel δΣ/δG. With Σ = iGW and the change of W neglected, the kernel is iW, and the first iteration gives the
+first-order correction above. `Gamma=` and `kernel=` set the labels, `ext=` the line at the tip of the triangle
+(`screened`), and `gcolor=` and `color=` the colours of the triangle and of the kernel's box.
+
+```feynman source
+hedin-vertex
+```
+
+The vertex enters the self-energy as Σ = iGWΓ (`gw gamma=`, in [Self-energies](/docs/guides/self-energies)) and the
+polarization as P = −iGGΓ (`bubble gamma=`, above). More in [Vertex corrections](/docs/examples/vertex-corrections).
+
+## Trions, biexcitons and other ladders
+
+`nbody` draws a ladder of any number of particle lines, with rungs between any two of them.
+
+- `lines=` lists the particles from the top: `e` for an electron, whose arrow runs along `dir`, and `h` for a hole,
+  whose arrow runs against it.
+- `rungs=` lists the columns from left to right, each a pair of line numbers counted from the top. `12` joins lines
+  1 and 2. `13` joins lines 1 and 3 and passes over line 2, which shows a gap. `12+34` puts two rungs side by side
+  in one column; rungs in one column must not overlap.
+- `labels=auto` names the lines `e` and `h`, numbered when a kind repeats (`e_1`, `e_2`); `labels=none` leaves the
+  names out, and `labels="..."` gives your own, separated by spaces.
+- `rung=` and `rungLabel=` set the rungs (`screened`, W), `gap=` the distance between lines and `spacing=` the
+  distance between columns.
+
+The arrows run with the electrons and against the holes, so one W serves for every pair: it binds an electron to a
+hole and repels two electrons or two holes. `trion` and `biexciton` are ready-made ladders of three and four lines:
+
+```feynman source
+nbody
+caption "exciton"
+| trion
+caption "trion X^{−}"
+| biexciton
+caption "biexciton"
+```
+
+`trion` is two electrons and a hole (the flag `negative`, X⁻, the default) or two holes and an electron (the flag
+`positive`, X⁺); its rungs, `12 23 13 12 23`, join every pair of lines. In `biexciton`, `12+34 13 24 23 14 12+34`,
+the rungs 12 and 34 bind each exciton and the others join the two excitons. These are direct terms: the exchange
+diagrams, in which the ends of two identical particles are swapped, are not drawn.
+
+Your own ladders take the same syntax. Here an exciton (lines 1 and 2) meets an electron (line 3), which attracts
+its hole (23) and repels its electron (13), and goes on:
+
+```feynman source
+nbody lines="e h e" rungs="12 12 23 13 12 12"
+```
+
+More in [Trions and biexcitons](/docs/examples/trions-and-biexcitons).
+
+## GT
+
+The GT self-energy of Müller, Blügel and Friedrich, PRB 100, 045130 (2019), closes a T matrix with an electron
+line: Σ<sup>σ</sup>(13) = −i T<sup>σσ′</sup>(12,34) G<sup>σ′</sup>(24). T is the ladder of W between the electron
+(spin σ) and a line of the opposite spin σ′, summed to all orders. Where W carries plasmons, this T matrix carries
+magnons, the spin waves and Stoner excitations. `gt` draws it the way GW is drawn (their Fig. 2), with T bent into
+an arch:
+
+```feynman source
+gw dressed=false G="\uparrow" dir=left
+| gt n=5 label="GT" dir=left
+```
+
+The outer rail continues the external electron (↑); the inner rail and the line that closes the loop along the base
+carry ↓. `n=` sets the radial rungs (3), besides the two along the base line, and `label=` writes a name inside the
+arch. `spin=false` leaves out the spin labels, and `up=` and `down=` change them.
+
+The flags `box` and `ladder` draw the same self-energy as a T box closed by G, after `n=` rungs (0), or as a closed
+ladder of `n=` rungs (3, and 2 at least). `pp` uses a particle–particle T matrix: its rails run the same way, and
+the line that closes it runs against both. It carries no magnon.
+
+```feynman source
+gt box
+| gt ladder
+| gt pp
+```
+
+In the box and ladder forms, `numbers` numbers the points as in the paper's Fig. 3, `T=` and `color=` set the
+box's label and colour, and the external electron lies on the main line, so that `gt` lines up with `gw` in a row;
+`center` puts the middle of the ladder there instead. `legs=false` leaves out the external legs, and `dir=left`
+runs the electron from right to left, as in the paper.
+
+`gt-bse` writes the T matrix in the ladder approximation, each term closed by G: T starts at third order in W,
+T = WKWKW + WKT, with K(12,34) = iG(13)G(42) the free electron–hole pair (their Fig. 3). By default it numbers the
+points and leaves out the spins and the legs.
+
+```feynman source
+gt-bse dir=left
+```
+
+<Callout type="info" title="G(24), not G(42)">
+The paper's Eq. 1 prints G(42). With its K(12,34) = iG(13)G(42), the line inside T already runs from 2 to 4, so the
+loop closes with G(24), from 4 back to 2, as its Fig. 3 draws. The templates draw G(24).
+</Callout>
+
+[Hedin's expansion and GT](/docs/examples/hedins-expansion-and-gt) places GT among the third-order diagrams of
+Hedin's expansion.

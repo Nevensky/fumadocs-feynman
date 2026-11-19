@@ -1,0 +1,300 @@
+---
+title: Notation
+description: Line styles, vertex shapes and colours, the conventions they follow, and how to name a style of your own.
+---
+
+Give every line a style and every vertex a shape: they say what the line or the vertex stands for. Where it goes is
+written separately, as [Writing diagrams](/docs/guides/writing-diagrams) explains. This page lists the styles and
+shapes, the colours you can give them, and how to name a style of your own, for one block or for the whole site.
+
+## Conventions
+
+The styles follow the usual notation of many-body perturbation theory, and the templates and examples use it
+throughout:
+
+| Symbol | Propagator | Style | Drawn as |
+| --- | --- | --- | --- |
+| G, free G⁰ | electron | `fermion` | a blue line with an arrow, double when dressed |
+| F, free F⁰ | phonon | `phonon` | an amber zigzag, heavy when dressed |
+| D, free D⁰ | photon | `photon` | a rose wave, heavy when dressed |
+| v | bare Coulomb interaction | `coulomb` | rose dashes |
+| W | screened Coulomb interaction | `screened` | rose double dashes |
+
+The free propagators are on the left, the dressed ones on the right:
+
+```feynman source
+(0,0) -> (2.2,0) fermion "G^0"
+(3.2,0) -> (5.4,0) fermion dressed "G"
+(0,-1) -- (2.2,-1) phonon "F^0"
+(3.2,-1) -- (5.4,-1) phonon dressed "F"
+(0,-2) -- (2.2,-2) photon "D^0"
+(3.2,-2) -- (5.4,-2) photon dressed "D"
+(0,-3) -- (2.2,-3) coulomb "v"
+(3.2,-3) -- (5.4,-3) screened "W"
+```
+
+### Arrows mark fermions
+
+An arrowhead marks a fermion: an electron, or a hole, which is an electron line with its arrow running back. Phonon,
+photon, Coulomb, screened, field, gluon and impurity lines never carry one: an arrow on one of them, written with
+`->`, `<-`, or `in` or `out` on a leg, is an error. The momentum such a line carries goes in its label, as in
+`v(\mathbf{q})`, or beside the line as a grey arrow with `mom=`, as the [momentum guide](/docs/guides/momentum)
+shows.
+
+## Line styles
+
+| Style | Drawn as | Colour | Takes an arrow | With `dressed` |
+| --- | --- | --- | --- | --- |
+| `fermion` | a solid line | `electron` (blue) | yes | `fermion2`, double |
+| `phonon` | a zigzag | `phonon` (amber) | no | `phonon2`, heavy |
+| `photon` | a wave | `photon` (rose) | no | `photon2`, heavy |
+| `coulomb` | dashes | `photon` (rose) | no | `screened`, double |
+| `screened` | double dashes | `photon` (rose) | no | unchanged |
+| `field` | a wave over dashes | `photon` (rose) | no | `field2`, heavy |
+| `gluon` | a coil | `c5` (violet) | no | `gluon2`, heavy |
+| `scalar` | dashes | `ink` | yes | `scalar2`, double |
+| `plain` | a solid line | `ink` | yes | `plain2`, double |
+| `boson` | a wave | `ink` | yes | `boson2`, heavy |
+| `ghost` | dots | `ink` | yes | unchanged |
+| `impurity` | dashes with a cross in the middle | `muted` (grey) | no | unchanged |
+
+A line has an arrow only where you write one, and only the styles marked yes take it. The forms on the right can be
+written directly too:
+
+```feynman source
+(0,0) -> (2.2,0) fermion "fermion"
+(3.2,0) -> (5.4,0) fermion2 "fermion2"
+(0,-1) -- (2.2,-1) phonon "phonon"
+(3.2,-1) -- (5.4,-1) phonon2 "phonon2"
+(0,-2) -- (2.2,-2) photon "photon"
+(3.2,-2) -- (5.4,-2) photon2 "photon2"
+(0,-3) -- (2.2,-3) coulomb "coulomb"
+(3.2,-3) -- (5.4,-3) screened "screened"
+(0,-4) -- (2.2,-4) field "field"
+(3.2,-4) -- (5.4,-4) field2 "field2"
+(0,-5) -- (2.2,-5) gluon "gluon"
+(3.2,-5) -- (5.4,-5) gluon2 "gluon2"
+(0,-6) -- (2.2,-6) scalar "scalar"
+(3.2,-6) -- (5.4,-6) scalar2 "scalar2"
+(0,-7) -- (2.2,-7) plain "plain"
+(3.2,-7) -- (5.4,-7) plain2 "plain2"
+(0,-8) -- (2.2,-8) boson "boson"
+(3.2,-8) -- (5.4,-8) boson2 "boson2"
+(0,-9) -> (2.2,-9) ghost "ghost"
+(3.2,-9) -- (5.4,-9) impurity "impurity"
+```
+
+Some styles have a second name: `electron` and `hole` are `fermion`, `electron2` is `fermion2`, `higgs` is `scalar`
+and `interaction` is `coulomb`. A `hole` line is drawn exactly as written, so give it the arrow that runs back:
+`a <- b hole`. A line written with `->` or `<-` and no style is a `fermion`; one written with `--` and no style is a
+`plain` line.
+
+## Dressed, bare, heavy and thin
+
+`dressed` draws the full propagator in place of the free one:
+
+| You write | You get |
+| --- | --- |
+| `fermion dressed` | `fermion2`, a double line |
+| `coulomb dressed` | `screened`, double dashes |
+| `scalar dressed`, `plain dressed` | `scalar2`, `plain2`: double lines |
+| `phonon`, `photon`, `field`, `gluon` or `boson` with `dressed` | `phonon2`, `photon2`, `field2`, `gluon2`, `boson2`: heavy lines |
+| `screened dressed`, `ghost dressed`, `impurity dressed` | the same line |
+
+`bare` does the reverse: it turns a "2" form, and `screened`, back into the free line. Use it where a line's style is
+dressed already: with `style F = phonon dressed` ([below](#your-own-notation)), `F bare` draws the free phonon F⁰.
+
+`heavy` and `thin` set the weight of the stroke, 3.2 px or 1.8 px, and leave a line single or double as it was.
+`fermion heavy` is a single thick line, which some texts use for the full G in place of a double one:
+
+```feynman source
+(0,0) -> (2.2,0) fermion "G^0"
+(3.2,0) -> (5.4,0) fermion dressed "G"
+(6.4,0) -> (8.6,0) fermion heavy "G"
+```
+
+## Vertices
+
+Place a vertex with `name at (x, y)`, then give it a shape (a `dot` when you give none), options and a label:
+
+| Shape | Drawn as |
+| --- | --- |
+| `dot` | a small dot in ink: a plain vertex |
+| `charge` | a slightly larger dot in ink, for a charge vertex (ρ) |
+| `current` | a teal dot, for a current vertex (j) |
+| `eph` | an amber dot, for the electron–phonon coupling g |
+| `dipole` | a rose dot, for a dipole coupling d·E |
+| `spin` | a violet dot, for a spin coupling σ·B |
+| `square` | a small square in ink |
+| `open` | an open circle |
+| `cross` | a cross, × |
+| `otimes` | a circled cross, ⊗ |
+| `disk` | a grey disk: a screened vertex |
+| `hatched` | a hatched disk, as on the Debye–Waller vertex |
+| `blob` | a grey circle, 0.42 units in radius: a self-energy |
+| `bubble` | the same circle in the electron colour |
+| `box` | a grey box, 0.9 × 1.3 units: a four-point vertex |
+| `triangle` | a grey triangle that points right: a three-point vertex, such as Hedin's Γ |
+| `lens` | a lens in the electron colour, 0.8 × 1.4 units and upright: a response function χ between two points |
+| `none` | nothing: a named point where lines meet or bend (`point` is the same) |
+
+The small marks take their label below them:
+
+```feynman source
+a at (0, 0) dot "dot"
+b at (1.3, 0) charge "charge"
+c at (2.6, 0) current "current"
+d at (3.9, 0) eph "eph"
+e at (5.2, 0) dipole "dipole"
+f at (6.5, 0) spin "spin"
+g at (7.8, 0) square "square"
+h at (0, -1.4) open "open"
+i at (1.3, -1.4) cross "cross"
+j at (2.6, -1.4) otimes "otimes"
+k at (3.9, -1.4) disk "disk"
+l at (5.2, -1.4) hatched "hatched"
+```
+
+Blobs, bubbles, boxes, triangles and lenses hold their label inside (the names here are `text` statements):
+
+```feynman source
+S at (0, 0) blob "\Sigma"
+P at (1.7, 0) bubble "\Pi"
+K at (3.4, 0) box "K"
+T at (5.1, 0) triangle "\Gamma"
+X at (6.8, 0) lens "\chi"
+text "blob" at 0,-1 size=13
+text "bubble" at 1.7,-1 size=13
+text "box" at 3.4,-1 size=13
+text "triangle" at 5.1,-1 size=13
+text "lens" at 6.8,-1 size=13
+```
+
+Lines stop at the edge of disks, hatched disks, open circles, ⊗, blobs, bubbles, boxes, triangles and lenses by
+themselves, so a line is written to the vertex's name. A single solid line runs into the centre of a dot or a square,
+and patterned, dashed and double lines stop at its rim. Lines can also end on the corners of a box or at an angle on
+a blob's edge, as `K.nw` or `S.30`: see the [language reference](/docs/reference/language#anchors).
+
+A vertex takes these options:
+
+| Option | What it does |
+| --- | --- |
+| `"…"` or `label=` | the label |
+| `pos=` | where the label goes: `below` (the default), `above`, `left`, `right`, `ne`, `nw`, `se`, `sw` or an angle in degrees. A shape that holds its label inside keeps it there unless `pos=` gives a place other than `center`, an angle included |
+| `color=` | a [colour](#colours) |
+| `r=` | the radius, in units |
+| `w=`, `h=` | the width and height of a box or a lens, in units |
+| `dir=` | the way a triangle points; `dir=right` (or `left`) lays a lens down |
+| `size=` | the size of a label outside the shape, in px (13 by default) |
+| `faint` | draws the vertex faded |
+
+## Matrix elements on vertices
+
+A vertex can be labelled once it exists, a template's vertex too: write its name, then the label, `pos=`, a shape or a
+colour. Charge vertices carry the density matrix element ρ, current vertices j:
+
+```feynman source
+bubble vertex=charge ext=coulomb extLabel=v
+a0 "\rho_{n\mathbf{k},m\mathbf{k}+\mathbf{q}}(\mathbf{G})" pos=sw
+b0 "\rho^*_{n\mathbf{k},m\mathbf{k}+\mathbf{q}}(\mathbf{G}')" pos=se
+| bubble vertex=current ext=photon extLabel=D
+a0 "j_{n\mathbf{k},m\mathbf{k}+\mathbf{q}}(\mathbf{G})" pos=sw
+b0 "j^*_{n\mathbf{k},m\mathbf{k}+\mathbf{q}}(\mathbf{G}')" pos=se
+```
+
+The names of a template's vertices, `a0` and `b0` here, are on the **By hand** tab, and a line that says `grid`
+writes them on the diagram while you draft. The other couplings work the same way: electron–phonon vertices carry g,
+where the electron enters, and its conjugate where it leaves:
+
+```feynman source
+fan-migdal vertex=eph
+a "g_{mn\nu}(\mathbf{k},\mathbf{q})" pos=below
+b "g^*_{mn\nu}(\mathbf{k},\mathbf{q})" pos=below
+```
+
+## Colours
+
+`color=` takes a colour token, on a line, a vertex or a `text`, and the templates' colour options (such as `color=` on
+`dyson` and `gcolor=` on `gw`) take the same names:
+
+| Token | Also written | Draws by default |
+| --- | --- | --- |
+| `electron` | `blue`, `fermion` | electron lines, bubbles and lenses |
+| `phonon` | `amber`, `orange` | phonon lines, `eph` vertices |
+| `photon` | `rose`, `pink` | photon and Coulomb lines, `dipole` vertices |
+| `c4` | `teal`, `current` | `current` vertices, Hedin's vertex Γ |
+| `c5` | `violet`, `purple` | gluons, `spin` vertices, the T matrix |
+| `ink` | `fg` | dots, the generic lines, most labels |
+| `muted` | `grey`, `gray` | grey shapes, impurity lines, momentum arrows |
+| `surface` | `bg` | the page background, under shapes and in the gaps where lines cross |
+
+A colour on a line also colours its arrowheads and its label, and on a shape, its label; the labels of dots stay in
+ink. Labels take a variant of each hue that is made for text. Every token is a CSS variable that changes with the
+site's theme, as the [theming guide](/docs/guides/theming) explains.
+
+```feynman source
+(0,0) -- (1.2,0) plain heavy color=electron "electron"
+(1.7,0) -- (2.9,0) plain heavy color=phonon "phonon"
+(3.4,0) -- (4.6,0) plain heavy color=photon "photon"
+(5.1,0) -- (6.3,0) plain heavy color=c4 "c4"
+(6.8,0) -- (8,0) plain heavy color=c5 "c5"
+(8.5,0) -- (9.7,0) plain heavy color=ink "ink"
+(10.2,0) -- (11.4,0) plain heavy color=muted "muted"
+```
+
+Any other value is used as a CSS colour, as written: `color=#0a7d3e` or `color=var(--brand)`. A fixed colour stays
+the same in dark mode.
+
+## Your own notation
+
+### In one block
+
+A `style` statement gives a look a name: `style NAME = BASE`, followed by any of the looks below. Use the name as you
+would a built-in style, on lines and legs, and in template options that take a line style, such as `line=`,
+`phonon=`, `ext=` and `rung=`. A style holds for the whole block, wherever in it you write it. Here the full G is a
+heavy line:
+
+```feynman source
+style G = fermion heavy
+a at (0, 0); b at (2.8, 0)
+leg a left; leg b right
+a -> b G "G" below
+a -- b screened bulge=1.2 above "W"
+```
+
+| Look | What it does |
+| --- | --- |
+| `dressed`, `bare` | the full or the free form, as above |
+| `heavy`, `thin` | a 3.2 px or a 1.8 px stroke |
+| `double` | two strands, as `fermion2` and `screened` have |
+| `color=` | a token or a CSS colour |
+| `width=` | the stroke, in px |
+| `amp=`, `wl=` | the amplitude and wavelength of a wave, zigzag or coil, in px |
+| `dash="5 4"` | the dash pattern of a dashed line, in px, fitted to its length |
+| `marker=cross` or `marker=none` | a cross in the middle of the line, or none |
+| `faint`, `opacity=` | a faded line, or any opacity |
+
+A style says only how a line looks. Where the line goes, its label and its momentum (`above`, `bulge=`, `"…"`,
+`mom=` and the like) stay on the line itself, and a style that names one of them is an error. A style can start from
+another of your styles: after `style D = photon`, `style Dfull = D dressed` is a heavy wave.
+
+### For the whole site
+
+To use the same names on every page, give the same `styles` to the component and to the remark plugin, which checks
+each block at build time and writes its **By hand** tab. Without them, the build reports every use of one of the names
+as a mistake.
+[Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit) sets both from one module.
+
+With the styles of that section, `{ D: 'photon', F: 'phonon dressed' }`, a block uses `D` and `F` with no `style`
+statement:
+
+````md
+```feynman
+a at (0, 0) current; b at (2.4, 0) eph
+leg a left 0.9 D "D"; leg b right 0.9 F "F"
+a -> b fermion bulge=1.1 above "G"
+b -> a fermion bulge=1.1 below "G"
+```
+````
+
+A block's own `style` statement wins over the site's style of the same name, in that block.

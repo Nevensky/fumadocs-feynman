@@ -2,4 +2,6 @@ node_modules/
 *.tgz
 test/out/
 .DS_Store
-demo/build.log
+docs/*.log
+# local preview servers, with this machine's paths
+.claude/launch.json

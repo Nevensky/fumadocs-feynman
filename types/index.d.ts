@@ -33,11 +33,13 @@ export function render(source: string, options?: RenderOptions): RenderResult;
 export function renderSVG(source: string, options?: RenderOptions): string;
 /** Render a diagram built in code with Term / Equation. */
 export function renderModel(model: Term | Equation, options?: RenderOptions): RenderResult;
-export function parse(source: string, options?: Pick<RenderOptions, 'unit' | 'styles'>): {
+export function parse(source: string, options?: Pick<RenderOptions, 'unit' | 'styles' | 'grid'>): {
   items: Array<{ op: string; br?: boolean; term?: Term; ellipsis?: boolean }>;
   /** line: where the block defines the style (the site's styles from options have none). */
   styles: Record<string, { base: string; opts: Record<string, unknown>; line?: number }>;
   unit?: number;
+  /** Whether the block sets its own unit (a unit statement), rather than taking the one in the options. */
+  unitGiven: boolean;
   grid?: boolean;
   errors: DiagramError[];
   /** The templates the block uses. */
@@ -66,7 +68,9 @@ export type BuiltinShape =
   | 'dot' | 'charge' | 'current' | 'eph' | 'dipole' | 'spin' | 'none' | 'point' | 'disk' | 'hatched' | 'open'
   | 'cross' | 'otimes' | 'square' | 'blob' | 'bubble' | 'box' | 'triangle' | 'lens';
 
-export const LINE_STYLES: Record<string, { pattern: string; color: string; arrow?: boolean; double?: boolean; heavy?: boolean }>;
+export const LINE_STYLES: Record<string, { pattern: string; color: string; arrow?: boolean; double?: boolean; heavy?: boolean; underlay?: 'dash'; marker?: 'cross' }>;
+/** The serif font stack an SVG falls back to where --feyn-font-text is not set (KaTeX's fonts are not in it). */
+export const FONT_INLINE: string;
 export const SHAPES: Record<string, { kind: string; color?: string; r?: number; ru?: number; wu?: number; hu?: number; trim?: boolean }>;
 
 export interface TemplateSpec {

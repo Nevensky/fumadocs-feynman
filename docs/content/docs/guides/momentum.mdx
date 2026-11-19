@@ -1,0 +1,168 @@
+---
+title: Momentum
+description: Momentum arrows beside interaction lines with mom=, on the self-energy templates and on lines you write yourself.
+---
+
+An arrowhead marks a fermion, so phonon, photon, field, gluon and interaction lines carry none
+([Arrows mark fermions](/docs/guides/notation#arrows-mark-fermions)). The momentum such a line carries goes in its
+label, or beside the line as a grey arrow with `mom=`, labelled with the momentum. Here a phonon of momentum q is
+absorbed at an electron–phonon vertex and takes the electron from nk to m k+q:
+
+```feynman source
+v at (0, 0)
+(-1.5, 0) -> v fermion "n\mathbf{k}" above
+v -> (1.5, 0) fermion "m\,\mathbf{k}+\mathbf{q}" above
+(0, -1.3) -- v phonon "\mathbf{q}\nu" side=right mom="\mathbf{q}"
+```
+
+The phonon line is written upwards, from its free end to `v`, so its momentum arrow points up, into the vertex.
+A line that steep has no above or below: `side=right` counts along the written direction, which upwards is the
+page's right, and the momentum arrow takes the other side.
+
+## The interaction of a self-energy
+
+`fock`, `gw` and `fan-migdal` take `mom="\mathbf{q}"`, lying down and standing up. The arrow points towards the
+vertex where the electron enters. That is the way q runs when the inner electron carries k+q, as in
+Σ(k) = i Σ_q v(q) G(k+q): at that vertex the electron brings k and the interaction brings q, and k+q goes on along
+the inner line. `momdir=back` turns the arrow round, for an inner line that carries k−q.
+
+```feynman source
+fock legLabel="\mathbf{k}" G="\mathbf{k}+\mathbf{q}" mom="\mathbf{q}"
+caption "inner line \mathbf{k}+\mathbf{q}"
+| fock legLabel="\mathbf{k}" G="\mathbf{k}-\mathbf{q}" mom="\mathbf{q}" momdir=back
+caption "inner line \mathbf{k}−\mathbf{q}: momdir=back"
+| fock vertical inner=chi mom="\mathbf{Q}" momtop="\mathbf{Q}+\mathbf{G}'_\parallel" momside=out
+caption "momtop=, momside=out"
+```
+
+With `dir=left` the electron enters at `b`, and the arrow points there. With `gw gamma=` it points to Γ, where
+the electron enters, mirrored or not. Around an inner diagram both pieces of the interaction carry the arrow, and
+`momtop=` labels the upper one when its momentum differs, as `vtop=` does the interaction's label: in the third
+diagram the two pieces carry Q and Q + G′∥, which differ by a reciprocal lattice vector.
+
+Standing up on a single line, the arrow points down to `a`, where the electron comes in with nk and goes on as
+m, k+q:
+
+```feynman source
+fock vertical legLabel="n\mathbf{k}" G="m,\mathbf{k}+\mathbf{q}" v="v(\mathbf{q})" mom="\mathbf{q}"
+| gw vertical legLabel="n\mathbf{k}" mom="\mathbf{q}"
+```
+
+On these templates `momdir=` takes only `back`, and `momside=` only `in` or `out`. `momdir`, `momside` and
+`momtop` without `mom=` are errors, and so is `momtop` without `vertical` and `inner=`; `gw` has no `momtop`.
+
+## Where the arrow sits
+
+The arrow sits inside, between the interaction and the electron, on the other side of the interaction from its
+label. A short momentum such as q or Q fits there; `momside=in` says the same as leaving it out. A longer one, such
+as Q + G′∥, does not, and `momside=out` puts the arrow outside. The interaction's label makes way:
+
+- lying down, it moves inside the arc;
+- standing up, on a single line, it stays outside, low on the line, with the arrow above it;
+- around an inner diagram, each label sits near `a` or `b`, and each arrow nearer the middle, as in the third
+  diagram above.
+
+```feynman source
+fock mom="\mathbf{q}"
+caption "inside"
+| fock mom="\mathbf{Q}+\mathbf{G}'_\parallel" momside=out
+caption "momside=out"
+| fock vertical mom="\mathbf{q}"
+caption "inside"
+| fock vertical mom="\mathbf{Q}+\mathbf{G}'_\parallel" momside=out
+caption "momside=out"
+```
+
+## Room for the arrow standing up
+
+Standing up, the electron passes close to the interaction near `a` and `b`. So that the arrow and its label clear
+it, `mom=` lengthens the interaction: a single line to 2.8 units, and each piece around an inner diagram to 1.45,
+or to 1.6 with `momside=out`, where the label and the arrow sit one above the other. A `height=` you give is kept
+as long as it leaves the arrow room. One shorter than 2.6, or than 1.35 a piece around an inner diagram, is an
+error that names the shortest height that fits.
+
+| Length in units, standing up | Without `mom=` | With `mom=` | With `momside=out` | Shortest `height=` with `mom=` |
+| --- | --- | --- | --- | --- |
+| The interaction, one line | 2.2 | 2.8 | 2.8 | 2.6 |
+| Each piece around an inner diagram | 0.9 | 1.45 | 1.6 | 1.35 a piece |
+| All of `fock vertical inner=chi` | 3.2 | 4.3 | 4.6 | 4.1 |
+
+These are the lengths at 40 px per unit and more. The arrow and its label keep their size in px, so below 40 px
+per unit they take more units: with `mom=`, the lengths grow by 40/unit, and so do the inner diagram and, lying
+down, the default width of 2.8 units. The legs do not, and nothing grows without `mom=`. The shortest `height=`
+accepted grows likewise, and a `height=` or `width=` that the block gives is kept as written. The unit can come
+from the block (`unit 30`), from the fence (`unit=30`) or from the site
+([Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit)). This block is drawn with `unit=30`
+in its fence, so the interaction with the arrow stands 2.8 × 40/30 ≈ 3.73 units tall, as its **By hand** tab shows,
+and the one without stays at 2.2:
+
+```feynman source unit=30
+fock vertical mom="\mathbf{q}"
+| fock vertical
+```
+
+## Written out by hand
+
+In the **By hand** tab the interaction is an ordinary line with `mom=`, written from `a` to `b`: from the tip of Γ
+with `gamma=`, upwards when standing, and in two pieces around an inner diagram, `a` to `c` and `d` to `b`. A
+line's momentum arrow runs along it, from its first end to its second, unless `momdir=back`. So the template
+options come out as:
+
+| Template | By hand |
+| --- | --- |
+| an arrow towards `a`, or Γ | `momdir=back` |
+| an arrow towards `b` | no `momdir` |
+| `momside=out` | `momside=left`; `momside=right` for `gw gamma= dir=left`, the mirror image |
+| `momside=out`, lying down | `side=in` on a labelled line, which puts the label inside |
+| `momside=out`, standing up | `pos=` for the label and `mompos=` for the arrow, on a labelled line |
+| `momtop=` | the `mom=` of the upper piece, from `d` to `b` |
+
+```feynman source
+gw gamma="\Gamma" mom="\mathbf{q}" momside=out
+| gw gamma="\Gamma" dir=left mom="\mathbf{q}" momside=out
+```
+
+## Lines you write
+
+Any line takes `mom=`, a fermion line too, and `momdir=`, `momside=` and `mompos=` place its arrow (the
+[language reference](/docs/reference/language) lists every line option):
+
+- The arrow runs along the written direction, from the line's first end to its second, whatever arrowhead the line
+  carries: `a <- b fermion mom="k"` has its momentum arrow from a to b. `momdir=back` turns it round.
+- On a straight line or an arc it sits at the label's place along the line, on the other side of the line, or
+  opposite where a label would go when there is none. On a straight line with no label, `above` or `below` puts
+  the arrow on that side of the page. `momside=left` or `momside=right` puts it on that side of the written
+  direction; on the label's side, move one of the two along the line with `pos=` or `mompos=`. Loops come below.
+- `mompos=` moves it along the line, as a fraction from 0 to 1. It is about 30 px long where the line has room,
+  and keeps clear of the line's ends and of the line's own arrowhead.
+- A leg is written left to right, or bottom to top when it points straight up or down, so its momentum arrow runs
+  that way unless `momdir=back`.
+- `momdir=`, `momside=` or `mompos=` on a line or a leg without `mom=` is an error, as there is no arrow to place.
+
+Two electrons exchange the momentum q through v. The Coulomb line is written from `b` up to `a`, so its arrow
+points up and carries q from the lower electron to the upper one; its label takes the left of the written
+direction, and the arrow the right:
+
+```feynman source
+a at (0, 0.8); b at (0, -0.8)
+(-1.5, 0.8) -> a fermion "\mathbf{k}" above
+a -> (1.5, 0.8) fermion "\mathbf{k}+\mathbf{q}" above
+(-1.5, -0.8) -> b fermion "\mathbf{k}'" below
+b -> (1.5, -0.8) fermion "\mathbf{k}'-\mathbf{q}" below
+b -- a coulomb "v(\mathbf{q})" mom="\mathbf{q}"
+```
+
+On a loop the arrow goes outside the loop, on its far half, away from the vertex and the lines there: halfway
+round when the label is inside or there is none, and a sixth of the way round from a label outside. Here the
+phonon of the Debye–Waller diagram carries q round its loop:
+
+```feynman source
+v at (0, 0) hatched "g^{DW}" pos=below
+leg v left 0.7; leg v right 0.7
+v -- v phonon loop above size=1.2 "F^0" mom="\mathbf{q}"
+```
+
+<Cards>
+  <Card title="Self-energies" href="/docs/guides/self-energies">The templates that take mom=, lying down and standing up.</Card>
+  <Card title="Language reference" href="/docs/reference/language">Every statement and line option, mom= among them.</Card>
+</Cards>

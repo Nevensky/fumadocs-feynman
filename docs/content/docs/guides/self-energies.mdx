@@ -1,0 +1,295 @@
+---
+title: Self-energies
+description: Templates for the electron self-energy, from the Σ blob to GWΓ and Hedin's expansion, lying down and standing up.
+---
+
+A self-energy Σ is what the interactions add to a propagator. The full electron propagator G follows from the
+free one, G⁰, through the Dyson equation G = G⁰ + G⁰ΣG, and Σ is the sum of the diagrams that stay in one piece
+when a single electron line is cut. The templates on this page draw these diagrams, each from one line. A template
+combines with `=`, `+` and `|` into equations, and its vertices keep their names, so you can label them
+afterwards. The [template reference](/docs/reference/templates) lists every option with its default.
+
+| Template | What it draws |
+| --- | --- |
+| [`sigma`](/docs/reference/templates#sigma) | Σ as a blob |
+| [`fan-migdal`](/docs/reference/templates#fan-migdal), [`debye-waller`](/docs/reference/templates#debye-waller) | the electron–phonon self-energy |
+| [`hartree`](/docs/reference/templates#hartree), [`fock`](/docs/reference/templates#fock), [`gw`](/docs/reference/templates#gw) | the first-order terms in v, and GW; `gw gamma=` adds Hedin's vertex |
+| [`sigma2`](/docs/reference/templates#sigma2) | two boson lines on one electron line: rainbow, crossed, sequential |
+| [`arcs`](/docs/reference/templates#arcs) | any number of interaction lines on one electron line, such as the exchange diagrams of Hedin's expansion |
+
+## Σ as a blob
+
+`sigma` draws Σ as a blob with two stubs, for an equation in which Σ stands for the whole sum. `label` names it
+(`\Sigma` by default), `line` sets the style of the stubs and `r` the radius of the blob in units (0.45). The
+next example puts it on the left of an equation.
+
+## Electron–phonon: Fan–Migdal and Debye–Waller
+
+To second order in the atomic displacements, the electron–phonon self-energy has two diagrams. In the
+Fan–Migdal diagram the electron emits a phonon at one vertex and absorbs it again at another, and propagates in
+between. In the Debye–Waller diagram a single second-order vertex emits and absorbs the phonon, so the phonon
+line closes on itself and the term does not depend on frequency.
+
+```feynman source
+sigma label="\Sigma^{ep}"
+= fan-migdal dressed vertex=disk
++ debye-waller dressed
+```
+
+`fan-migdal` draws the electron line from `a` to `b`, labelled G⁰ under it, and the phonon arc F⁰ over it.
+`dressed` turns both into full propagators, labelled G and F; `G=` and `F=` set other labels. `vertex=` sets the
+shape of `a` and `b` (here `disk`, a screened vertex), `phonon=` the style of the arc, and `width` the distance
+from `a` to `b` (2.8 units). `debye-waller` draws the hatched vertex `v`, labelled `g^{DW}` (`vertexLabel=`),
+with the phonon loop F⁰ on it, or F with `dressed`.
+
+## Hartree, Fock and GW
+
+To first order in the Coulomb interaction v there are two diagrams. In the Hartree diagram the electron feels the
+electrostatic potential of the average electron density: a loop of G, closed on itself, joined to the electron
+line by v. The Fock diagram is exchange, Σ = iGv: v spans the electron line. GW spans it with the screened
+interaction W instead, Σ = iGW, the lowest order of Hedin's expansion in W.
+
+```feynman source
+hartree
+caption "Hartree"
+| fock
+caption "Fock"
+| gw
+caption "GW"
+```
+
+`hartree` and `fock` draw the free G⁰ and the bare v (a dashed line); `gw` draws the full G (a double line) and W
+(a double dashed line). `G=`, `v=` and `W=` set the labels, and `legLabel` labels the external electron. `fock`
+and `gw` take `vertex=`, `width` and `dir`, as `fan-migdal` does, and their vertices are `a` and `b`. In
+`hartree`, `a` is on the electron line and `b` at the foot of the loop, and `interaction=` sets the style of the
+line between them (`coulomb`).
+
+## Hedin's vertex: Σ = iGWΓ
+
+Hedin's vertex function Γ corrects the vertex at which the electron enters: Σ = iGWΓ, and Γ = 1 gives GW back.
+`gw gamma="\Gamma"` draws Γ as a triangle on the electron line where the electron enters, with W arriving at its
+tip; the electron leaves at the bare vertex `b`.
+
+```feynman source
+gw gamma="\Gamma"
+caption "\Sigma = iGW\Gamma"
+| gw gamma="\Gamma" dir=left
+caption "dir=left"
+```
+
+The triangle is the vertex `Gam`, coloured with `gcolor=` (`c4`, teal). With `dir=left` the whole diagram is
+mirrored, so that Γ stays where the electron enters. `gamma=` does not stand up: with `vertical` it is an error.
+`bubble gamma=` closes a polarization bubble with Γ in the same way, P = −iGGΓ; the
+[vertex corrections examples](/docs/examples/vertex-corrections) show the two side by side.
+
+## Second order: rainbow, crossed, sequential
+
+Two boson lines on one electron line can sit in three ways, and `sigma2` draws each of them, with phonons unless
+`boson=` names another style:
+
+```feynman source
+sigma2 rainbow
+caption "rainbow"
+| sigma2 crossed
+caption "crossed"
+| sigma2 sequential
+caption "sequential"
+```
+
+- In the **rainbow** one phonon sits inside the other: it is a self-energy on the inner electron line. A full G
+  holds it already, so `fan-migdal dressed` contains every rainbow.
+- The **crossed** diagram is the first vertex correction. For phonons, Migdal's theorem makes it smaller than the
+  rainbow by a factor of order √(m/M), the ratio of the phonon to the electron energy scale.
+- The **sequential** diagram is two first-order diagrams in a row. Cutting the electron line between them
+  separates them, so it is not part of Σ: the Dyson equation produces it from the first-order Σ.
+
+`type=` takes the same three names as the flags (`crossed` by default). `dressed` dresses every line, `label`
+names the boson line that starts at the first vertex, and `dir=left` turns the electron round. The vertices are
+`v0` to `v3`, from the left.
+
+## Hedin's expansion: arcs
+
+`arcs` draws one electron line with interaction lines above and below it. It numbers the vertices 1, 2, … from
+the left and takes each interaction as a pair of them, two digits such as `15` (or `1-5`):
+`arcs above="15 24" below="36"` joins 1 to 5 and 2 to 4 above the line, and 3 to 6 below it. Each vertex ends
+exactly one arc, and the numbers run from 1 with none left out; anything else is an error. Arcs on one side that
+cross pass over one another. With neither `above=` nor `below=`, `arcs` draws `above="13 24"`, the second-order
+exchange diagram.
+
+Iterating Hedin's equations from Σ = iGW gives, at second order in W, the second-order screened exchange, the first
+vertex correction. At third order come four exchange diagrams of this kind. Expanded in the full G and W, as
+here with `dressed`, no diagram carries a self-energy insertion, so there is no rainbow among them. This is
+Fig. 1 of Müller, Blügel and Friedrich, PRB 100, 045130 (2019), drawn as in the paper with the electron running
+right to left, without its two direct third-order diagrams:
+
+```feynman source
+gw G="" W="" dir=left
+| arcs above="13 24" dressed dir=left
+\\ arcs above="15 24" below="36" dressed dir=left
+| arcs above="13 46" below="25" dressed dir=left
+| arcs above="26 35" below="14" dressed dir=left
+| arcs above="14 36" below="25" dressed dir=left
+```
+
+The direct diagrams are ladders closed by G, which `gt ladder` draws; the
+[Hedin's expansion examples](/docs/examples/hedins-expansion-and-gt) show the whole figure. `arcs` also takes
+`boson=` for the style of the arcs (`screened`), `label` for the first arc, `spacing` between the vertices
+(0.9 units), `dressed` for a double electron line, `vertex=` and `dir`. The vertices are `v1`, `v2`, ….
+
+## Standing up
+
+`fock`, `gw` and `fan-migdal` take `vertical`. The interaction then runs straight up from the lower vertex `a` to
+the upper one `b`, and the electron arcs round on the right, in at the bottom and out at the top. The
+interaction carries no arrow, as no boson line does; its label sits on the left, and the electron's outside the
+arc on the right.
+
+```feynman source
+fock vertical
+caption "Fock"
+| gw vertical
+caption "GW"
+| fan-migdal vertical dressed
+caption "Fan–Migdal"
+```
+
+`legLabel` labels the external electron, under the leg at `a` and over the leg at `b`, and the interaction's
+label can say which momentum it carries:
+
+```feynman source
+fock vertical legLabel="n\mathbf{k}" G="m,\mathbf{k}+\mathbf{q}" v="v(\mathbf{q})"
+| gw vertical legLabel="n\mathbf{k}" W="W(\mathbf{q})"
+```
+
+`mom=` draws that momentum as an arrow beside the interaction instead, and lengthens the interaction to make room
+for it; the [momentum guide](/docs/guides/momentum) covers it.
+
+The options of the standing forms:
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `vertical` | off | stands the self-energy up |
+| `height` | automatic | the distance from `a` to `b`, in units: 2.2; around an inner diagram, the length of the inner diagram plus 0.9 for each piece of the interaction; longer with `mom=`. The template reference writes the automatic value as 0 |
+| `legLabel` | | labels the external electron |
+| `inner` | | `chi` or `bubble`: the diagram inside the interaction, from `c` to `d` (`fock` and `fan-migdal`) |
+| `chi` | χ or Π | labels the lens `X`; with `inner=bubble`, the lowest piece of the bubble's left line |
+| `vtop` | | labels the upper piece of the interaction, from `d` to `b` |
+| `ladder` | 0 | the number of rungs across the bubble |
+| `rung` | `screened` | the style of the rungs |
+| `rungLabel` | | labels the first rung |
+| `dir` | `right` | `left`: the electron comes in at `b` and leaves at `a` |
+
+These options are errors where they would do nothing: `height`, `inner`, `chi`, `vtop`, `ladder`, `rung` and
+`rungLabel` without `vertical`; `ladder`, `rung` and `rungLabel` without `inner=bubble`; `chi` and `vtop` without
+`inner=`. `gw` takes no `inner=`. A `height=` too short for the pieces of the interaction around an inner diagram
+is an error that names the shortest height that fits.
+
+## Inside the interaction
+
+Standing up, `fock` and `fan-migdal` take `inner=`, which splits the interaction around a diagram of its own:
+
+- `inner=chi` puts in a response-function lens, `X`, labelled with `chi=`: χ in `fock`, Π in `fan-migdal`.
+- `inner=bubble` puts in a polarization bubble of two electron lines, and `ladder=` adds rungs across it.
+  `rung=` sets their style (`screened`) and `rungLabel=` labels the first one.
+
+```feynman source
+fock vertical inner=chi
+caption "inner=chi"
+| fock vertical inner=bubble
+caption "inner=bubble"
+| fock vertical inner=bubble ladder=2 rungLabel=W
+caption "ladder=2"
+```
+
+The screened interaction is W = v + vχv, with χ the density response function. With χ inside, the Fock diagram
+becomes the correlation self-energy iG(W − v), and with the plain Fock diagram it makes GW. The bubble is the
+lowest term of χ, the polarization of independent electrons, which makes the second-order direct diagram; the
+rungs inside it are the electron–hole attraction that excitons come from.
+
+The inner diagram runs from `c` (below) to `d` (above). They take the vertex kind of `a` and `b` when that is one
+of the dots (`dot`, `charge`, `current`, `eph`, `dipole`, `spin`), and are plain dots otherwise. `vtop=` labels
+the upper piece of the interaction when it differs from the lower one. In a crystal, for instance, χ joins two
+reciprocal lattice vectors G and G′, and the two pieces of v carry q + G and q + G′:
+
+```feynman source
+fock vertical inner=chi v="v(\mathbf{q}+\mathbf{G})" vtop="v(\mathbf{q}+\mathbf{G}')" chi="\chi_{\mathbf{G}\mathbf{G}'}(\mathbf{q})"
+```
+
+## Naming the points
+
+Every vertex of a template keeps its name, which the **By hand** tab shows, and so does `grid` on a line of its own
+([The names of the vertices](/docs/guides/templates#the-names-of-the-vertices)): `a` and `b` where the electron
+meets the interaction, `c` and `d` at the ends of the inner diagram, `X` for the lens, and `l1`, `r1`, `l2`,
+`r2`, … for the ends of the rungs in a bubble, from the bottom.
+
+```feynman source
+grid
+fock vertical inner=chi
+| fock vertical inner=bubble ladder=1
+```
+
+A line that starts with the name of a point labels it afterwards, with `pos=` for where the label goes. Here the
+points carry their positions, r and r′ on the electron line and r₁ and r₂ at the ends of χ, so that the
+interaction reads v(r, r₁) χ(r₁, r₂) v(r₂, r′), the correlation part of W(r, r′):
+
+```feynman source
+fock vertical inner=chi
+a "\mathbf{r}" pos=below
+c "\mathbf{r}_1" pos=se
+d "\mathbf{r}_2" pos=ne
+b "\mathbf{r}'" pos=above
+```
+
+The same works for every template. Here the Hartree loop is labelled with the density at r′, and the Fock
+diagram runs right to left (`dir=left`), so that the electron comes in at r′ and leaves at r:
+
+```feynman source
+hartree G="-iG(\mathbf{r}';\mathbf{r}',0^+)" legLabel=n
+a "\mathbf{r}" pos=below
+b "\mathbf{r}'" pos=sw
+caption "H"
++ fock vertical dir=left G=m legLabel=n
+a "\mathbf{r}" pos=below
+b "\mathbf{r}'" pos=above
+caption "F"
+```
+
+## Bare or dressed lines
+
+`fock` and `hartree` draw the free G⁰. With `dressed` they draw the full G, a double line labelled G; a `G=` you
+give is kept. `gw` draws G from the start. `dressed=false` gives it the single line of one-shot G⁰W⁰, with
+`G="G^0"` for its label; W is a screened line either way.
+
+```feynman source
+fock
+caption "first order"
+| fock dressed
+caption "self-consistent"
+| gw dressed=false G="G^0" W="W^0"
+caption "G^0W^0"
+| gw
+caption "GW"
+```
+
+`fan-migdal dressed` draws the full G and the full phonon propagator F, a heavy zigzag, and `debye-waller dressed`
+draws its loop as F. `sigma2 dressed` dresses every line, and `arcs dressed` only the electron line. Standing up,
+`fan-migdal vertical dressed` draws F too, but around an inner diagram the two pieces of the phonon line stay F⁰,
+dressed or not: F already holds every insertion of the phonon self-energy Π, and FΠF would count one of them
+twice. `F=` and `vtop=` set other labels.
+
+```feynman source
+fan-migdal vertical dressed
+caption "F"
+| fan-migdal vertical dressed inner=chi
+caption "F^0ΠF^0"
+```
+
+## The direction of the electron
+
+`dir=left` runs the electron the other way, and mirrors `gw gamma=` so that Γ stays where the electron enters: see
+[Direction and mirror images](/docs/guides/templates#direction-and-mirror-images).
+
+<Cards>
+  <Card title="Momentum" href="/docs/guides/momentum">Momentum arrows beside the interaction, and the room they take standing up.</Card>
+  <Card title="Self-energy examples" href="/docs/examples/self-energies">Every self-energy example, with its source written out by hand.</Card>
+  <Card title="Template reference" href="/docs/reference/templates">Every template, with its options and their defaults.</Card>
+</Cards>

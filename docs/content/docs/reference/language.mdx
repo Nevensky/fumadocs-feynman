@@ -1,0 +1,522 @@
+---
+title: Language reference
+description: Every statement, option, shape and operator of the feynman language, and the values each takes.
+---
+
+This page lists what the parser accepts, in tables. [Writing diagrams](/docs/guides/writing-diagrams)
+introduces the same language with examples, and the [template reference](/docs/reference/templates) lists the
+templates and their options.
+
+## Reading a block
+
+- A block is read line by line. A statement ends at the end of its line, or at a `;` outside double quotes
+  and brackets.
+- `%` and `//` start a comment that runs to the end of the line, except inside double quotes.
+- Spaces at the start of a line are ignored. Words are separated by spaces.
+- Text in double quotes is a label. `\"` puts a double quote in it; every other backslash is kept, for TeX.
+- Numbers are written `2`, `-0.5` or `.5`. A position is `(x, y)` or `x,y`, in units: x to the right, y up.
+- A name starts with a letter or `_`, and goes on with letters, digits, `_` and primes (`'` or `′`); Greek
+  letters count as letters, and `-` may join two parts (`a-1`). A name cannot hold a `.`, which marks an
+  anchor.
+- `caption`, `title`, `text`, `leg`, `unit` and `style` begin statements of their own, so they cannot name
+  vertices. `grid` can, as long as `at` or a line operator follows it.
+- `unit`, `grid` and `style` apply to the whole block, wherever they stand. The other statements belong to the
+  term they are written in, in order: a vertex must be placed before a `leg`, a label or a restyle names it,
+  but a line may name a vertex placed later in the same term.
+
+## Statements
+
+Square brackets mark optional parts. After the position of a vertex and after the ends of a line, the parts may
+come in any order; a leg's direction and length come first.
+
+| Statement | Form | Example |
+| --- | --- | --- |
+| Vertex | `NAME at x,y [shape] [options] ["label"]` | `S at (2, 0) blob "\Sigma"` |
+| Existing vertex | `NAME [shape] [options] ["label"]` | `a current "\mathbf{r}" pos=sw` |
+| Line | `END OP END [style] [flags] [options] ["label"]` | `b -> a fermion dressed "G" below` |
+| Chain | `END OP END OP END … [style] [flags] [options]` | `v0 -> v1 -> v2 fermion` |
+| Self-loop | `NAME OP NAME [style] [flags] [options] ["label"]` | `v -- v phonon loop above size=1.2 "F"` |
+| Leg | `leg NAME [direction] [length] [style] [in or out] [flags] [options] ["label"]` | `leg a left 1 in "n\mathbf{k}" below` |
+| Text | `text "…" at x,y [size=…] [color=…] [anchor=…] [upright]` | `text "g^{DW}" at 0,-0.5 size=12 color=muted` |
+| Caption | `caption "…"` | `caption "Fan–Migdal"` |
+| Title | `title "…"` | `title "Fock exchange self-energy"` |
+| Template | `NAME [flags] [key=value …] ["label"]` | `ladder n=4 pp rung=phonon` |
+| Unit | `unit N` | `unit 36` |
+| Grid | `grid` | `grid` |
+| Style | `style NAME = BASE [looks]` | `style F = phonon dressed` |
+| Operator | `OP [statements]`, at the start of a line | `+ debye-waller dressed` |
+
+An existing vertex, a template's included, takes a new shape, options or label without moving; options it
+had before are kept unless given again. `NAME at x,y` for a name already in use places a new vertex, shape and
+label included. A template takes a quoted string as its `label=` when it has that option.
+
+## Line ends
+
+| End | Meaning |
+| --- | --- |
+| `a` | vertex `a`. A line stops at the edge of a `disk`, `hatched`, `open`, `otimes`, `blob`, `bubble`, `box`, `triangle` or `lens`. Every line but a single solid one also stops at the rim of a small dot or square; a single solid line runs to its centre |
+| `a.ne` | an anchor on vertex `a`: the line ends exactly there |
+| `(x, y)` | a point, in units; nothing is drawn there |
+| `+(dx, dy)` | a point measured from the other end of the same line; one end at least must be a vertex or a point |
+
+A triangle stops lines at the circle through its corners. To run a line up to one of its sides, end it at the
+triangle's centre, `T.c`: the triangle is drawn over the line and hides its end.
+
+### Anchors
+
+| Anchor | On a box | On any other vertex |
+| --- | --- | --- |
+| `nw`, `ne`, `sw`, `se` | a port: a point on a face, 0.2 units in from that corner (less on a small box). A line that arrives more horizontally uses the side face, one that arrives more vertically the top or bottom face | the rim at 135°, 45°, 225° and 315° |
+| `n`, `e`, `s`, `w` | the middle of that face | the rim at 90°, 0°, 270° and 180° |
+| `c`, `center` | the centre | the centre |
+| a number | the edge in that direction | the rim at that angle |
+
+Angles are in degrees, anticlockwise from the right: `S.30`, `S.-45`. The rim of a lens is its outline, and a
+triangle's lies on the circle through its corners. An arc that ends on a box port uses the face its tangent
+points through, so an arc over the top of a box leaves from the top face. An unknown anchor is an error.
+
+## Lines
+
+### Line operators
+
+| Operator | Arrow | Style when none is given |
+| --- | --- | --- |
+| `->` | from the first end to the second | `fermion` |
+| `<-` | from the second end to the first | `fermion` |
+| `--` | none | `plain` |
+
+A chain (`a -> b -> c`) draws one line per operator, each with its own arrow and all with the same style,
+flags and options. A chain takes no label.
+
+### Line styles
+
+| Style | Drawn as | Colour | Takes an arrow | `dressed` gives |
+| --- | --- | --- | --- | --- |
+| `fermion` | solid | `electron` | yes | `fermion2`, a double line |
+| `phonon` | zigzag | `phonon` | no | `phonon2`, heavy |
+| `photon` | wave | `photon` | no | `photon2`, heavy |
+| `coulomb` | dashed | `photon` | no | `screened` |
+| `screened` | double dashed | `photon` | no | |
+| `field` | wave over dashes | `photon` | no | `field2`, heavy |
+| `gluon` | coil | `c5` | no | `gluon2`, heavy |
+| `scalar` | dashed | `ink` | yes | `scalar2`, double |
+| `ghost` | dotted | `ink` | yes | |
+| `plain` | solid | `ink` | yes | `plain2`, double |
+| `boson` | wave | `ink` | yes | `boson2`, heavy |
+| `impurity` | dashed, with a cross | `muted` | no | |
+
+The forms ending in 2 are styles of their own as well, and `bare` turns them (and `screened`) back. Other
+names: `electron` and `hole` for `fermion`, `electron2` for `fermion2`, `higgs` for `scalar`, and
+`interaction` for `coulomb`. A name given with `style`, in the block or by the site, works wherever a style
+does. An arrow on a line whose style takes none is an error: draw it with `--`.
+
+### Line options
+
+| Option | Value | Default | Meaning |
+| --- | --- | --- | --- |
+| `label=` | text | | the label; a quoted string does the same |
+| `side=` | `left`, `right`, `in`, `out` | `left`; `out` on an arc or loop | where the label goes: left or right of the written direction, or inside or outside an arc or loop |
+| `pos=` | 0 to 1 | halfway between the vertices | where the label sits along the line |
+| `dist=` | px | a few px past the line's reach, more beside an arrowhead | the label's distance from the line |
+| `bend=` | number | 0 | an arc whose height is this fraction of the distance between the ends; 0.5 is a half circle |
+| `bulge=` | units, 0 or more | | an arc this many units high; it needs `above` or `below` |
+| `dir=` | a direction | `up` | where a loop goes |
+| `size=` | units | 1 | the diameter of a loop |
+| `mom=` | text | | a momentum arrow beside the line, with this label |
+| `momside=` | `left`, `right` | opposite the label; on a straight line with no label, the side `above` or `below` names | the side of the written direction the momentum arrow goes on |
+| `momdir=` | `back` | along the written direction | turns the momentum arrow round |
+| `mompos=` | 0 to 1 | beside the label | where the momentum arrow sits along the line |
+| `color=` | a colour | the style's | colour of the line, its arrowhead and its label |
+| `width=` | px | 1.8; heavy 3.2 | stroke width |
+| `amp=` | px | 3.6; coil 4; heavy zigzag 4.2 | amplitude of a wave, zigzag or coil |
+| `wl=` | px | 9; zigzag 7; heavy zigzag 9.5 | wavelength of a wave, zigzag or coil |
+| `dash=` | `"dash gap"` in px | `"5 4"` | dash pattern of a dashed line |
+| `arrow=` | `mid`, `end`, `start`, `none` | `mid` | where the arrowhead goes |
+| `arrowpos=` | 0 to 1 | halfway between the vertices | where a middle arrowhead sits along the line |
+| `marker=` | `cross`, `none` | `cross` on `impurity` | a cross in the middle of the line |
+| `opacity=` | 0 to 1 | | opacity of the line |
+
+- The written direction runs from a line's first end to its second, whatever its arrow says. Left of it is the
+  viewer's left, so the label of a line written left to right goes above it.
+- `pos=`, `mompos=` and `arrowpos=` count along the line as drawn, from its first end (0) to its second (1).
+  On a loop, 0 and 1 are at the vertex and 0.5 is opposite it.
+- `bend=` takes its sign from the written direction: a positive value bulges to the left. With `above` or
+  `below` it may not be negative, and the page word gives the side.
+- `bulge=` may be at most half the distance between the ends; `arc` is that half circle.
+- `arrow=end` puts the arrowhead at the end the arrow points to, with its tip on that end. `arrow=start` puts it
+  at the end the arrow leaves, inside the line: its back sits on that end and it points along the line.
+  `arrow=none` removes it, and `arrow=mid` is the default.
+- `dash=` changes only dashed styles. The dashes are stretched so that the line starts and ends on a dash.
+- `momside=`, `momdir=` and `mompos=` place the momentum arrow of `mom=`, and without `mom=` they are an error.
+  On a loop, the momentum arrow goes outside, a sixth of the way round from a label outside.
+  [Momentum](/docs/guides/momentum) has the details.
+- `dir=` and `size=` act on loops only.
+
+### Line flags
+
+| Flag | Meaning |
+| --- | --- |
+| `above`, `below` | a side of the page, whatever order the ends are written in. On a straight line, where the label goes; on an arc, the side it bulges to; on a loop, where the loop goes. Only on lines within 45° of horizontal |
+| `bend` | an arc with `bend=0.35` |
+| `arc` | an arc with `bend=0.5`, a half circle |
+| `dressed` | the style's dressed form |
+| `bare` | the style's bare form |
+| `heavy` | a heavy stroke |
+| `thin` | a thin stroke |
+| `double` | two strands |
+| `faint` | drawn at 35% opacity |
+| `over` | the line passes over the lines written before it: each line it crosses gets a gap, except a dashed or dotted one, which keeps its own gaps; a dashed `over` line keeps a dash on each crossing |
+| `loop` | a self-loop on the first end; implied when both ends are the same vertex, without anchors |
+| `cw` | a loop runs clockwise |
+| `ccw` | a loop runs anticlockwise, the default |
+
+Where two wavy, zigzag or coiled lines cross, the later one passes over the earlier one without `over`. An
+arrowhead at a crossing moves off it.
+
+## Vertices
+
+### Shapes
+
+| Shape | Drawn as | Size | Label |
+| --- | --- | --- | --- |
+| `dot` | dot in ink (the default) | radius 3 px | below |
+| `charge` | larger dot in ink, for ρ | radius 3.4 px | below |
+| `current` | teal dot, for j | radius 3.6 px | below |
+| `eph` | amber dot, the electron–phonon g | radius 3.6 px | below |
+| `dipole` | rose dot, d·E | radius 3.6 px | below |
+| `spin` | violet dot, σ·B | radius 3.6 px | below |
+| `disk` | grey disk, a screened vertex | radius 6.5 px | below |
+| `hatched` | hatched disk | radius 8 px | below |
+| `open` | open circle | radius 4.5 px | below |
+| `cross` | a cross | radius 4.5 px | below |
+| `otimes` | a circled cross | radius 6.5 px | below |
+| `square` | small square | 6.8 px wide | below |
+| `blob` | grey circle, a self-energy | radius 0.42 units | inside |
+| `bubble` | blue circle | radius 0.42 units | inside |
+| `box` | rounded box, a four-point vertex | 0.9 × 1.3 units | inside |
+| `triangle` | triangle, pointing right | radius 0.46 units | inside |
+| `lens` | lens, a response function; upright | 0.8 × 1.4 units | inside |
+| `none`, `point` | nothing | | below |
+
+Where a double line ends on a small dot, every dot of that term without an `r=` grows a little, so that both
+strands end on its rim. [Vocabulary](/docs/examples/vocabulary#vertex-shapes) draws every shape.
+
+### Vertex options
+
+| Option | Value | Default | Meaning |
+| --- | --- | --- | --- |
+| `label=` | text | | the label; a quoted string does the same. A vertex takes one label |
+| `pos=` | a position word or an angle | below; inside a blob, bubble, box, triangle or lens | where the label goes |
+| `color=` | a colour | the shape's | colour of the shape |
+| `r=` | units | the shape's | radius of any shape but a box or lens |
+| `w=` | units | box 0.9; lens 0.8 upright, 1.4 lying | width on the page |
+| `h=` | units | box 1.3; lens 1.4 upright, 0.8 lying | height on the page |
+| `dir=` | a direction | triangle `right`; lens upright | where a triangle points; `left` or `right` lays a lens down |
+| `size=` | px | 13 | font size of a label outside the shape |
+| `faint` | flag | | drawn at 35% opacity |
+
+`pos=` takes `below`, `above`, `left`, `right`, `ne`, `nw`, `se`, `sw`, `n`, `s`, `e`, `w`, `up`, `down`,
+`top`, `bottom` or `center`, or an angle in degrees, anticlockwise from the right (`pos=30`). `n`, `up` and
+`top` mean above, `s`, `down` and `bottom` below. On a blob, bubble, box, triangle or lens, any `pos=` but
+`center` puts the label outside; other shapes take `center` as below. A label inside a shape is 14 px, one
+outside 13 px or `size=`, set 4 px clear of the shape.
+
+The label of a small dot or a `none` vertex is set in the ink colour. Other shapes give their label the text
+shade of their colour, or ink for the grey ones. A lens is never thicker than it is long: where `w=` and `h=`
+would make it so, its thickness is cut to its length, which draws a circle.
+
+## Legs
+
+| Part | Value | Default |
+| --- | --- | --- |
+| `NAME` | a vertex placed earlier in the term | |
+| direction | a [direction](#directions), right after the name | `left` |
+| length | units, right after the direction | 0.6 |
+| style | a line style | `fermion` |
+| `in`, `out` | an arrow into the vertex, or out of it | no arrow |
+| flags and options | as on a line, except `arrow=` | |
+| label | a quoted string, or `label=` | |
+
+- The first word or number after the name is the direction, unless it is a style, a flag, `in` or `out`:
+  `leg a 1.2` points at 1.2°, and `leg a phonon` points left.
+- A leg is written from its left end to its right end, or upwards when it is vertical, whatever `in` or `out`
+  says. Its label goes above it, or on the left of a vertical leg, and `side=`, `mom=` and `momdir=` count
+  along that direction.
+- `above` and `below` come after the direction.
+- `in` and `out` set the arrow; `arrow=` on a leg is an error.
+
+## Self-loops
+
+A line whose two ends are the same vertex, without anchors, is a loop. `loop` on a line between two different
+vertices is an error.
+
+| Part | Value | Default |
+| --- | --- | --- |
+| `above`, `below` | the loop goes above or below the vertex | |
+| `dir=` | a [direction](#directions) | `up` |
+| `size=` | units | 1 |
+| `cw`, `ccw` | the way it runs | anticlockwise |
+| `side=` | `in`, `out`; without `above` or `below`, also `left`, `right` | `out` |
+| `pos=` | 0 to 1, round the loop from the vertex | 0.5, opposite the vertex |
+| `mom=` | as on a line | outside the loop |
+
+On a vertex that lines stop at, the loop starts inside the shape and is cut at its edge. A loop takes no
+`bulge=` or `bend=`, and with `above` or `below` no `dir=`. A `->` arrow runs the way the loop runs, a `<-`
+arrow against it.
+
+## Text
+
+| Part | Value | Default |
+| --- | --- | --- |
+| `"…"` | the text, typeset as a label | |
+| `at x,y` | a position | |
+| `size=` | px | 14 |
+| `color=` | a colour | ink |
+| `anchor=` | `start`, `middle`, `end` | `middle` |
+| `upright` | flag | off |
+
+The text is centred on y, and `anchor=` says which end of it sits at x. A particle colour gives its text
+shade. `upright` sets every letter upright.
+
+## Captions and titles
+
+- `caption "…"` writes a caption under the diagram, or under its term in an equation. It is set as text:
+  upright, every space kept, with the label commands. For a single diagram, a `caption=` in the fence meta
+  replaces it.
+- `title "…"` sets the accessible description, the SVG's `aria-label`, with its TeX read out as text: `G^0`
+  becomes `G sup 0`. Without one, a template gives its own, read the same way, and any other diagram is described
+  by its lines and their labels or, with no lines, by its vertices (`blob Σ, box K`). A `title=` in the fence
+  meta, used as written, describes the whole figure instead
+  ([Accessibility](/docs/guides/how-it-works#accessibility)).
+
+## Global statements
+
+| Statement | Meaning |
+| --- | --- |
+| `unit N` | px per unit for the whole block, a positive number; 40 by default. It wins over a `unit=` in the fence meta and over the [site's unit](/docs/installation#site-wide-notation-and-unit). With several, the last counts. Strokes, arrowheads and labels keep their size in px |
+| `grid` | on its own, with no options: draws the unit grid under every term, marks y = 0 and writes each vertex's name over the drawing |
+| `style NAME = BASE [looks]` | names a line style; the `=` may be left out |
+
+A style says how a line looks. Its looks are `dressed`, `bare`, `heavy`, `thin`, `double`, `faint`, `color=`,
+`width=`, `amp=`, `wl=`, `dash=`, `marker=` and `opacity=`, with the values they take on a line. Anything else
+(`above`, `bend=`, `mom=`, a label) is an error, since where a line goes and what it says belong to the line.
+
+`BASE` is a line style, another name for one, or a style of the block or the site. A style may be used
+before its `style` statement. An unknown base is an error where the style is used. Options written on a line
+win over its style's. A template option that takes a line style keeps the style's looks: after
+`style F = phonon dressed`, `fan-migdal phonon=F` draws the dressed phonon. Styles for the whole site are set up
+in [Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit).
+
+## Equations
+
+A line that starts with an operator begins a new term. The rest of that line and the lines after it, up to
+the next operator, are the term's statements.
+
+| Operator | Note |
+| --- | --- |
+| `=`, `:=` | |
+| `+` | not before `(`: `+(dx, dy)` is a relative point |
+| `−` | the minus sign, U+2212 |
+| `-` | set as the minus sign, −; not before `-`, `>`, a digit or `.` |
+| `×`, `·` | |
+| `≈`, `≃`, `≡`, `∝` | |
+| `→`, `⇒` | |
+| `\|` | no operator: the next diagram goes beside the last |
+| `op "…"` | any text |
+
+- Operators are printed as written, not typeset as TeX, except `-`, which is set as −. `op` text is printed
+  exactly as written, a `-` in it included.
+- An operator on the first line stays in front of the first term. An operator with no term after it is an
+  error.
+- `...`, `…`, `⋯`, `\cdots` or `\ldots` as a term's only statement draws ⋯.
+- `\\` at the start of a line starts a new row, and an operator may follow it on the same line. A `\\` alone
+  on its line starts the row at the next term.
+- An equation template (`dyson`, `hedin-vertex`, `bse`, `tmatrix`, `parquet`, `gt-bse`) must stand alone in
+  its term. Its terms join the equation, and an operator written before it replaces its first.
+- Each term has its own vertices: a name in one term does not reach another. A term's y = 0 sits on the line
+  where the operators are set, and its caption under it.
+
+## Directions
+
+Legs, `dir=` on loops, triangles and lenses take a direction word or an angle.
+
+| Word | Angle |
+| --- | --- |
+| `right`, `e` | 0° |
+| `ne` | 45° |
+| `up`, `n`, `above`, `top` | 90° |
+| `nw` | 135° |
+| `left`, `w` | 180° |
+| `sw` | 225° |
+| `down`, `s`, `below`, `bottom` | 270° |
+| `se` | 315° |
+| a number | that angle, in degrees anticlockwise from the right |
+
+## Colours
+
+`color=` takes a colour name of the theme, or any CSS colour.
+
+| Name | Also | Used for |
+| --- | --- | --- |
+| `electron` | `fermion`, `blue` | fermion lines, bubbles, lenses |
+| `phonon` | `amber`, `orange` | phonon lines, `eph` |
+| `photon` | `rose`, `pink` | photon, Coulomb, screened and field lines, `dipole` |
+| `c4` | `teal`, `current` | `current` |
+| `c5` | `violet`, `purple` | gluon lines, `spin` |
+| `ink` | `fg` | plain, scalar, ghost and boson lines, dots, labels |
+| `muted` | `grey`, `gray` | disks, blobs, boxes, triangles, impurity lines, momentum arrows |
+| `surface` | `bg` | the background |
+
+Any other value is passed to CSS as it stands: `color="#c2410c"`, `color=var(--brand)`. Labels use the darker
+text shade of a particle colour. [Theming](/docs/guides/theming) sets the colours for light and dark mode.
+
+## Labels
+
+Labels, captions and `text` are written in a subset of TeX.
+
+### Scripts and groups
+
+| Write | For |
+| --- | --- |
+| `G_0`, `G^0` | a subscript or superscript: one character or one command |
+| `G^{cn}`, `G^0_{n\mathbf{k}}` | a group in braces |
+| `\rho^*_{n\mathbf{k}}`, `G'_z` | a subscript right after a superscript or a prime is set under it, and a superscript right after a subscript over it |
+
+### Greek letters
+
+`\alpha`, `\beta`, `\gamma`, `\delta`, `\epsilon` (ϵ), `\varepsilon` (ε), `\zeta`, `\eta`, `\theta`,
+`\vartheta`, `\iota`, `\kappa`, `\lambda`, `\mu`, `\nu`, `\xi`, `\pi`, `\varpi`, `\rho`, `\varrho`, `\sigma`,
+`\varsigma`, `\tau`, `\upsilon`, `\phi` (ϕ), `\varphi` (φ), `\chi`, `\psi`, `\omega`, and the capitals
+`\Gamma`, `\Delta`, `\Theta`, `\Lambda`, `\Xi`, `\Pi`, `\Sigma`, `\Upsilon`, `\Phi`, `\Psi`, `\Omega`.
+
+### Fonts
+
+| Command | Sets its argument |
+| --- | --- |
+| `\mathrm{}`, `\mathsf{}` | upright |
+| `\mathit{}` | italic |
+| `\mathbf{}` | bold upright |
+| `\boldsymbol{}`, `\bm{}` | bold italic |
+| `\text{}`, `\textrm{}`, `\operatorname{}` | as upright text |
+| `\textit{}` | as italic text |
+| `\textbf{}` | as bold text |
+
+### Accents
+
+`\bar`, `\overline`, `\tilde`, `\widetilde`, `\hat`, `\widehat`, `\dot`, `\ddot`, `\vec`, `\check` and
+`\breve`. On one letter, the accent sits on that letter. `\overline{}`, and `\bar{}` over more than one letter,
+draw one bar over the whole group, as in `\Gamma_{\overline{ph}}`; the others, over several letters, accent
+each one.
+
+### Symbols
+
+| Command | Symbol | Command | Symbol | Command | Symbol |
+| --- | --- | --- | --- | --- | --- |
+| `\dagger` | † | `\ddagger` | ‡ | `\prime` | ′ |
+| `\infty` | ∞ | `\partial` | ∂ | `\nabla` | ∇ |
+| `\ell` | ℓ | `\hbar` | ℏ | `\minus` | − |
+| `\pm` | ± | `\mp` | ∓ | `\times` | × |
+| `\cdot` | · | `\ast` | ∗ | `\star` | ⋆ |
+| `\circ` | ∘ | `\bullet` | • | `\otimes` | ⊗ |
+| `\oplus` | ⊕ | `\perp` | ⊥ | `\parallel` | ∥ |
+| `\to`, `\rightarrow` | → | `\leftarrow` | ← | `\leftrightarrow` | ↔ |
+| `\uparrow` | ↑ | `\downarrow` | ↓ | `\Uparrow` | ⇑ |
+| `\Downarrow` | ⇓ | `\sim` | ∼ | `\approx` | ≈ |
+| `\equiv` | ≡ | `\neq`, `\ne` | ≠ | `\le`, `\leq` | ≤ |
+| `\ge`, `\geq` | ≥ | `\langle`, `\rangle` | ⟨ ⟩ | `\cdots` | ⋯ |
+| `\ldots`, `\dots` | … | | | | |
+
+### Spaces and escapes
+
+- `\,` is a thin space, `\;` and `\:` a medium space, and `\!` nothing. A backslash before a space gives a
+  space.
+- `\{`, `\}`, `\_`, `\^`, `\%`, `\#`, `\&` and `\\` give the character itself, and `\|` gives ‖.
+- A command outside the subset is printed as written, upright. A stray `}` is left out.
+
+### How labels are set
+
+- Latin letters are italic, capital Greek letters upright and lower-case Greek letters italic. Digits,
+  punctuation and symbols are upright.
+- In sub- and superscripts, Latin letters are upright, as names such as cn, ep and irr are. `\mathit{}` makes
+  them italic; the `scriptItalic` option of the [component](/docs/reference/component) makes them italic in
+  every label.
+- `-` becomes a minus sign, `'` a prime and `*` an asterisk operator (∗).
+- `+`, `-`, `=`, `×`, `±`, `∓`, `·`, `<`, `>`, `≤`, `≥`, `≈` and `≡` between two operands get a medium space on
+  each side, so `\mathbf{k}+\mathbf{q}` reads **k** + **q**. A sign gets none: `-q`.
+- A space after a command only ends it, so `\delta G` is δG. Beside an operator or a relation the space stays:
+  `\Sigma = x`, `A \times B`. Every other space is kept as typed.
+- In text (captions, `\text{}`, `\textrm{}`, `\textit{}`, `\textbf{}`, `\operatorname{}`) every space is
+  kept, and `-`, `'` and `*` stay as typed.
+
+## Errors
+
+A diagram with an error is not drawn. Each error names the line of the block it is on, and an error in what a
+template draws names the template's line: the page shows the errors in a box, and the build reports them against
+the line of the `.mdx` file ([Errors](/docs/guides/errors)). These are errors:
+
+**Statements**
+
+- A statement that is none of those above. A single unknown word gets the list of templates, and the nearest
+  one when a template's name is close:
+  `unknown template or statement "ladderr"; did you mean ladder? (templates: …)`.
+- A name close to a template's, followed by that template's options or flags:
+  `unknown template "fok"; did you mean fock?`.
+- A label, shape or option for a name that is no vertex of the term yet; a close name is suggested.
+- A block with nothing to draw.
+
+**Vertices**
+
+- `at` with no position after it, or a name with a `.` in it.
+- A second label.
+- An option that is not a vertex option (the nearest is suggested), or a word that is not a shape.
+- A `pos=` that is neither a position word nor an angle.
+- `above`, `below`, `up`, `down`, `top` or `bottom` as a bare word: write `pos=above`.
+
+**Lines and legs**
+
+- A line that does not start with a vertex or a point, or an operator with no end after it.
+- A second style or a second quoted label, or a label on a chain.
+- A word that is neither a style nor a flag, on a line or a leg (`leg: unknown word "D" (line styles: …)`),
+  or an option that is not a line option (the nearest is suggested). `height=` and `toward=`, from an earlier
+  version, name their replacements.
+- `above=` or `below=` with a value: they are bare words.
+- A value outside what the tables above give for `side=`, `pos=`, `bend=`, `bulge=`, `momside=`, `momdir=`,
+  `mompos=`, `arrow=`, `arrowpos=` or `marker=`.
+- `momside=`, `momdir=` or `mompos=` without `mom=`.
+- `arrow=` on a leg, whatever its value: a leg takes its arrow from `in` or `out`.
+- An arrow on a line whose style takes none.
+- `loop` on a line between two different vertices.
+- `above` with `below`; either of them on a line steeper than 45° or with no length; either on a straight line
+  that has no label and no `mom=`, or together with `side=` on a straight line.
+- `bulge=` without `above` or `below`, below zero, or more than half the distance between the ends; `bulge=`
+  together with `bend=`, `bend` or `arc`; `bend=` below zero with `above` or `below`.
+- `side=in` or `side=out` on a straight line; `side=left` or `side=right` on an arc or loop that `above` or
+  `below` places.
+- On a loop: `bulge=` or `bend=`; `dir=` with `above` or `below`; with `above` or `below`, a `size=` that is
+  not positive.
+- Two relative ends, or a line that lies wholly inside the vertex at its end.
+- An end that names no vertex of the term, or an unknown anchor.
+- A style whose base is not a line style.
+- A leg on a vertex not yet placed, a leg direction that is not a direction, `above` or `below` before the
+  direction, or a second number after the length.
+
+**Text, captions and titles**
+
+- `text` without a quoted string, or without a position after `at`; an option but `size=`, `color=` and
+  `anchor=`; an `anchor=` other than `start`, `middle` or `end`; a word but `upright`.
+- `caption` or `title` without a quoted string.
+
+**Global statements**
+
+- `grid` followed by anything but `at` or a line operator.
+- `unit` without a positive number.
+- `style` without a name and a base; a word or option that is not a look, or a look's value out of range.
+
+**Equations and templates**
+
+- An operator with no term after it.
+- An equation template sharing its term with other statements.
+- A template option the template does not have. The message suggests the nearest when one is close, and lists
+  those it has: `ladder: unknown option "rungs"; did you mean rung? (options: n, channel, …)`.
+- A number option written bare or without a number (`ladder: n expects a number, as in n=3`), a text option
+  without a value, and each template's own checks.

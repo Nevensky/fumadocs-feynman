@@ -1,0 +1,254 @@
+---
+title: Installation
+description: Add fumadocs-feynman to a fumadocs site, from the package to a first diagram.
+---
+
+## Requirements
+
+- Node.js 18 or later. The package needs nothing newer, though your versions of fumadocs and Next.js may.
+- A fumadocs site with fumadocs-mdx 11 to 15. Other MDX setups work too: see [Other MDX pipelines](#other-mdx-pipelines).
+- React 18 or later, for the `Feynman` component. React is an optional peer dependency: the remark plugin and `render()` work without it.
+
+## Setup
+
+<Steps>
+<Step>
+
+### Install the package
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+<Tab value="npm">
+
+```bash
+npm install fumadocs-feynman
+```
+
+</Tab>
+<Tab value="pnpm">
+
+```bash
+pnpm add fumadocs-feynman
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add fumadocs-feynman
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add fumadocs-feynman
+```
+
+</Tab>
+</Tabs>
+
+<Callout type="info" title="Until it is on npm">
+
+fumadocs-feynman is not published to npm yet. Until it is, install it from GitHub:
+
+```bash
+npm install github:Nevensky/fumadocs-feynman
+```
+
+</Callout>
+
+</Step>
+<Step>
+
+### Add the remark plugin
+
+The remark plugin turns each `feynman` code block into a `Feynman` element and checks its diagram. The [remark plugin reference](/docs/reference/remark-plugin) lists its options.
+
+**fumadocs-mdx 15** defines the content collections in `lib/source.ts`, with the `fumadocs-mdx/macro` API. Give the docs collection its MDX options:
+
+```ts title="lib/source.ts"
+import { loader } from 'fumadocs-core/source';
+import { defineDocs } from 'fumadocs-mdx/macro';
+import { applyMdxPreset } from 'fumadocs-mdx/config';
+import { remarkFeynman } from 'fumadocs-feynman/remark';
+
+const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    mdxOptions: applyMdxPreset({
+      remarkPlugins: (defaults) => [remarkFeynman, ...defaults],
+    }),
+  },
+});
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+});
+```
+
+`applyMdxPreset` keeps the rest of the site working. A collection-level `mdxOptions` replaces fumadocs' default MDX options instead of adding to them, so on its own it would drop the default plugins: GitHub-flavoured Markdown, heading anchors, the table of contents, code highlighting and the search index. `applyMdxPreset` adds them back. Given a function as `remarkPlugins`, it calls it with the default remark plugins and uses the list it returns: here, the defaults with `remarkFeynman` in front. This site is set up the same way: see its [`lib/source.ts`](https://github.com/Nevensky/fumadocs-feynman/blob/main/docs/lib/source.ts).
+
+**fumadocs-mdx 11 to 14** read their configuration from `source.config.ts`. Add the plugin to the global `mdxOptions`:
+
+```ts title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import { remarkFeynman } from 'fumadocs-feynman/remark';
+
+export const docs = defineDocs({
+  dir: 'content/docs',
+});
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [remarkFeynman],
+  },
+});
+```
+
+</Step>
+<Step>
+
+### Register the component
+
+The plugin's elements need a component to draw them. Add the import and the `Feynman` entry to the MDX components in `components/mdx.tsx`:
+
+```tsx title="components/mdx.tsx"
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
+import { Feynman } from 'fumadocs-feynman/react';
+
+export function getMDXComponents(components?: MDXComponents) {
+  return {
+    ...defaultMdxComponents,
+    Feynman,
+    ...components,
+  } satisfies MDXComponents;
+}
+```
+
+`Feynman` has no hooks and no `'use client'`. On Next.js it renders on the server, and the page receives the SVG with no JavaScript for it. A page with a `feynman` block but no `Feynman` component fails with an error that names it. The [component reference](/docs/reference/component) lists its props.
+
+</Step>
+<Step>
+
+### Load the styles
+
+A diagram's colours are CSS variables, which a small stylesheet sets for the light and dark themes. With React 19, the component puts this stylesheet in the page's `<head>` itself, once per page, through React's `<style href precedence>`. Current fumadocs runs on React 19, so there is nothing to do.
+
+React 18 cannot hoist a stylesheet. There, turn the injection off and import the stylesheet yourself:
+
+```tsx title="components/mdx.tsx"
+import { createFeynman } from 'fumadocs-feynman/react';
+
+// React 18: the stylesheet comes from global.css instead
+const Feynman = createFeynman({ injectStyle: false });
+```
+
+```css title="app/global.css"
+@import 'fumadocs-feynman/style.css';
+```
+
+`createFeynman` makes a `Feynman` component with defaults for every block; `<Feynman injectStyle={false} />` sets the prop for one. Without the stylesheet, a diagram still draws in its light colours, but does not follow dark mode: [Theming](/docs/guides/theming#the-stylesheet) has the details.
+
+</Step>
+<Step>
+
+### Write a first diagram
+
+In a page under `content/docs`, write a code block whose language is `feynman`:
+
+````md
+```feynman
+fan-migdal
+```
+````
+
+Start the dev server and open the page. The block draws the Fan–Migdal self-energy:
+
+```feynman source
+fan-migdal
+```
+
+This page writes `source` after `feynman` in its fences, which puts each block's source under its diagram. A block that uses a template, like this one, gets two tabs: **Template**, the block as written, and **By hand**, the same diagram written out. See [Source tabs](/docs/guides/source-tabs).
+
+A mistake in a block is reported while the site builds, with the file and the line, and the page shows an error box in place of the diagram. See [Errors](/docs/guides/errors).
+
+With the setup done, the [Quick start](/docs/quick-start) builds this diagram one statement at a time.
+
+</Step>
+</Steps>
+
+## Site-wide notation and unit
+
+Two settings can apply to every diagram on a site: your own names for line styles, and the size of a unit, 40 px by default. The component draws with them, and the remark plugin checks every block and writes its **By hand** tab with them, so the two need the same values. Keep them in one module:
+
+```ts title="lib/feynman.ts"
+// the site's notation and unit, for the component and the remark plugin alike
+export const feynman = {
+  styles: { D: 'photon', F: 'phonon dressed' },
+  unit: 36,
+};
+```
+
+Register a `Feynman` made with `createFeynman`, in place of the plain one:
+
+```tsx title="components/mdx.tsx"
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
+import { createFeynman } from 'fumadocs-feynman/react';
+import { feynman } from '@/lib/feynman';
+
+// on React 18: createFeynman({ ...feynman, injectStyle: false })
+const Feynman = createFeynman(feynman);
+
+export function getMDXComponents(components?: MDXComponents) {
+  return {
+    ...defaultMdxComponents,
+    Feynman,
+    ...components,
+  } satisfies MDXComponents;
+}
+```
+
+Give the remark plugin the same object:
+
+```ts title="lib/source.ts"
+// the other imports as in the setup above
+import { feynman } from './feynman';
+
+const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    mdxOptions: applyMdxPreset({
+      remarkPlugins: (defaults) => [[remarkFeynman, feynman], ...defaults],
+    }),
+  },
+});
+
+// export const source = loader({ … }) as above
+```
+
+With fumadocs-mdx 11 to 14, the plugin's options go in `source.config.ts`: import the module there with `import { feynman } from './lib/feynman'`, and write `remarkPlugins: [[remarkFeynman, feynman]]`.
+
+With these settings, `F` names a dressed phonon and `D` a photon in every block, on lines and legs and in template options such as `fan-migdal phonon=F`, and diagrams are drawn at 36 px per unit. [Theming](/docs/guides/theming#size) shows what the unit scales and what keeps its size. If the plugin does not get the settings:
+
+- Without the styles, the check reports every use of `F` as a mistake, on lines, on legs and in template options alike: [Errors](/docs/guides/errors#an-unknown-template-or-style) gives the messages.
+- Without the unit, the plugin checks the blocks and writes their By hand tabs at 40 px per unit, while the page draws them at 36. Some templates size themselves by the unit ([Momentum](/docs/guides/momentum#room-for-the-arrow-standing-up)), so a By hand tab can then differ from the diagram above it, and the check can pass a block that the page shows as an error box.
+
+One block needs no setup to differ: a `unit=` in its fence or a `unit` statement sets its unit, and a `style D = photon` statement names a style inside it ([Notation](/docs/guides/notation#in-one-block)).
+
+## Other MDX pipelines
+
+Nothing in the package depends on fumadocs. `remarkFeynman` is a remark plugin and `Feynman` a React component, so any unified or MDX setup can use them: add the plugin to its remark plugins, and give MDX a component named `Feynman`, or the name set with the plugin's `component` option.
+
+```ts
+import { compile } from '@mdx-js/mdx';
+import { remarkFeynman } from 'fumadocs-feynman/remark';
+
+const code = await compile(file, { remarkPlugins: [remarkFeynman] });
+```
+
+The **Template** and **By hand** tabs that `source` adds are elements too: fumadocs-ui's `CodeBlockTabs`, which `defaultMdxComponents` includes. Elsewhere, give MDX components of the same names, as [Source tabs](/docs/guides/source-tabs#without-fumadocs-ui) shows, or leave `source` out.
+
+Without MDX at all, `render()` turns a block's source into HTML and SVG: see [API](/docs/reference/api).

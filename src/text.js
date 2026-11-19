@@ -15,7 +15,7 @@ const SYMBOL = {
   ell: 'ℓ', hbar: 'ℏ', to: '→', rightarrow: '→', leftarrow: '←', leftrightarrow: '↔', uparrow: '↑', downarrow: '↓',
   sim: '∼', approx: '≈', equiv: '≡', neq: '≠', ne: '≠', le: '≤', leq: '≤', ge: '≥', geq: '≥', star: '⋆', ast: '∗',
   circ: '∘', bullet: '•', cdots: '⋯', ldots: '…', dots: '…', perp: '⊥', parallel: '∥', otimes: '⊗', oplus: '⊕',
-  langle: '⟨', rangle: '⟩', minus: '−', uparrow2: '⇑',
+  langle: '⟨', rangle: '⟩', minus: '−', Uparrow: '⇑', Downarrow: '⇓',
   ',': ' ', ';': ' ', ':': ' ', '!': '', ' ': ' ', '{': '{', '}': '}', '_': '_', '^': '^', '%': '%',
   '#': '#', '&': '&', '\\': '\\', '|': '‖'
 };

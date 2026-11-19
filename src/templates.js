@@ -390,7 +390,8 @@ const legOpts = (p) => (p.legLabel ? { label: p.legLabel, below: true } : {});
 /** Chain of n bubbles joined by `link` lines, with `ext` legs at both ends. */
 function chain(t, p) {
   const n = Math.max(1, Math.round(p.n));
-  const w = p.ladder ? 0.95 * (Math.round(p.ladder) + 1) : 1.6, gap = 1.0, leg = 0.9;
+  // a bubble's width= (rpa and exciton have none), and with rungs wide enough to keep a rung's label clear of the next
+  const w = p.ladder ? Math.max(p.width ?? 0, 0.95 * (Math.round(p.ladder) + 1)) : p.width ?? 1.6, gap = 1.0, leg = 0.9;
   const ext = p.ext || p.link;
   const rimL = rimUnits(p.left || p.vertex), rimR = rimUnits(p.right || p.vertex);
   let prev = t.pt(0, 0), x = leg + rimL;

@@ -93,11 +93,13 @@ function termLines(term, styles) {
 export function expand(source, options = {}) {
   // the site's styles (as given to the remark plugin) are known while expanding, but not written out
   // the site's unit too (a fence's unit=), which a template may size itself by, as a render would
-  const doc = parse(source, { styles: options.styles, unit: options.unit });
+  const doc = parse(source, { styles: options.styles, unit: Number.isFinite(+options.unit) && +options.unit > 0 ? +options.unit : undefined });
   // the errors a render would report too (an unknown vertex is only found when the lines are drawn)
   const errors = [...doc.errors];
   for (const it of doc.items) if (it.term) renderTerm(it.term, { unit: doc.unit || 40, uid: 'expand', styles: doc.styles, errors });
-  if (errors.length) throw new Error(errors.map((e) => `${e.line ? `line ${e.line}: ` : ''}${e.message}`).join('\n'));
+  errors.sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
+  const lines = [...new Set(errors.map((e) => `${e.line ? `line ${e.line}: ` : ''}${e.message}`))];
+  if (lines.length) throw new Error(lines.join('\n'));
   const out = [];
   if (doc.unitGiven) out.push(`unit ${num(doc.unit)}`);
   if (doc.grid) out.push('grid');

@@ -1,0 +1,193 @@
+---
+title: Source tabs
+description: Show a diagram's source under it, and the same diagram written out vertex by vertex.
+---
+
+Put the bare word `source` in a block's fence, and the page shows the source under the diagram:
+
+````md
+```feynman source
+fock vertical
+```
+````
+
+```feynman source
+fock vertical
+```
+
+A block that uses a template gets two tabs: **Template**, the block as you wrote it, and **By hand**, the same diagram
+written out vertex by vertex and line by line. A block written by hand gets a single code block. Either way the source
+is shown in a ```` ```feynman ```` fence, ready to paste into a page. The fence's own options, such as `caption=` or
+`unit=`, are not repeated in it.
+
+## Turning it on
+
+- **For one block,** write the bare word `source` in the fence, among its other options:
+  ```` ```feynman source caption="Fock" ````. A word inside a quoted value does not count, so
+  `caption="the source term"` leaves the source out.
+- **For every block,** give the plugin `source: true`:
+
+```ts title="lib/source.ts"
+mdxOptions: applyMdxPreset({
+  remarkPlugins: (defaults) => [[remarkFeynman, { source: true }], ...defaults],
+}),
+```
+
+With fumadocs-mdx 11–14, the option goes in `source.config.ts` instead:
+`defineConfig({ mdxOptions: { remarkPlugins: [[remarkFeynman, { source: true }]] } })`. If the plugin already takes
+the site's settings, as in [Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit), add the
+option to them: `[remarkFeynman, { ...feynman, source: true }]`. The [Remark plugin](/docs/reference/remark-plugin)
+reference lists its other options.
+
+## The tabs
+
+The tabs are fumadocs-ui's code-block tabs. The plugin writes them out finished: a `CodeBlockTabs` element holding a
+`CodeBlockTabsList` with two `CodeBlockTabsTrigger` elements, and two `CodeBlockTab` elements. `defaultMdxComponents`
+from `fumadocs-ui/mdx` includes all four components, so on a fumadocs site there is nothing to set up, and:
+
+- the tabs need no `remarkCodeTab`, and they work whether `remarkFeynman` runs before it or after it;
+- **Template** is the tab open when the page loads;
+- each pair of tabs switches on its own. If one click switched every pair on the page, the text would move under the
+  reader.
+
+### Without fumadocs-ui
+
+A page with these tabs needs components of the same four names. If they are missing, MDX stops with an error such as:
+
+```txt
+Expected component `CodeBlockTab` to be defined: you likely forgot to import, pass, or provide it.
+```
+
+The plugin gives them these props and children:
+
+| Component | Props | Children |
+| --- | --- | --- |
+| `CodeBlockTabs` | `defaultValue="Template"` | the list, then the two tabs |
+| `CodeBlockTabsList` | none | the two triggers |
+| `CodeBlockTabsTrigger` | `value`: `Template` or `By hand` | the same word, as text |
+| `CodeBlockTab` | `value`: `Template` or `By hand` | the code block |
+
+They map onto the root, list, triggers and panels of a tabs component, such as Radix UI's `Tabs`. The smallest
+stand-in shows both code blocks, one under the other, each under its name:
+
+```tsx title="components/code-block-tabs.tsx"
+import type { ReactNode } from 'react';
+
+export const codeBlockTabs = {
+  CodeBlockTabs: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  CodeBlockTabsList: () => null,
+  CodeBlockTabsTrigger: () => null,
+  CodeBlockTab: ({ value, children }: { value: string; children?: ReactNode }) => (
+    <section>
+      <p>{value}</p>
+      {children}
+    </section>
+  ),
+};
+```
+
+Pass them to MDX with the rest of your components, as in `{ ...codeBlockTabs, Feynman }`.
+
+## What By hand contains
+
+By hand is the block as plain statements, in this order:
+
+1. **Vertices,** each with its position and any shape, label and options: `a at (0, 0)`. A label, shape or colour that
+   you gave a template's vertex in a later statement is written on the vertex itself.
+2. **Lines,** in the order they are drawn, each with its style, every option it has (`bend=`, `side=`, `over`,
+   `arrowpos=`, `mom=` and the rest) and its label. An arrow that a template set becomes `->` or `<-`, and a line
+   without one is written `--`. Points that a template makes up, such as the free ends of external legs, are written
+   as coordinates: `(-1.175, 0) -- a fermion`.
+3. **Texts and the caption.**
+
+Numbers have at most four decimals. In an equation, the operator, `|` or `\\` that begins a term gets a line of its
+own. Comments are not kept.
+
+The rest of the block is treated as follows:
+
+- **The template's title is left out.** The title is the diagram's accessible description, and once you change the
+  copy it would no longer describe it. Without it, the copy is described by its lines
+  ([Accessibility](/docs/guides/how-it-works#accessibility)). A `title "…"` statement that you wrote is kept.
+- **The block's own settings are kept:** its `unit`, `style`, `grid` and `title` statements.
+- **The site's settings are used, not written.** The plugin's `styles` and `unit`, and the fence's `unit=`, apply
+  while the block is written out, but they do not appear in By hand: the copy relies on the same settings as the
+  block. As some templates size themselves by the unit, By hand holds the positions for the unit the block is drawn
+  at.
+
+A standing self-energy with `mom=` in a fence with `unit=30`, for instance, is written out taller in units, and with
+no `unit` statement, because the unit came from the fence. Paste the copy into a block with the same `unit=30`, or it
+is drawn taller. [Momentum](/docs/guides/momentum#room-for-the-arrow-standing-up) draws that block, with its By hand
+tab.
+
+### Blocks with errors
+
+A block with errors gets no By hand tab. The page shows its [error box](/docs/guides/errors#the-error-box), followed
+by the block's source on its own. If a block without errors could not be written out, the build would report
+`the By hand tab is left out: …` and show the block as written, alone; with `strict`, that fails the build, as a
+diagram error does. It would be a bug worth reporting.
+
+## In code
+
+`expand()` writes a block out by hand, and `templatesIn()` lists the templates it uses. The plugin calls both for the
+tabs, with the site's settings:
+
+```ts
+import { expand, render, templatesIn } from 'fumadocs-feynman';
+
+templatesIn('hartree\n+ fock'); // ['hartree', 'fock']
+templatesIn('a at 0,0; b at 2,0\na -> b fermion'); // [] (written by hand)
+
+const hand = expand('fock vertical');
+// a at (0, 0)
+// b at (0, 2.2)
+// (-1.175, 0) -- a fermion
+// b -- (1.175, 2.2) fermion
+// a -> b fermion bend=-0.36 "G^0"
+// a -- b coulomb "v"
+
+render(hand).svg; // the same picture as render('fock vertical').svg
+
+// the site's styles and unit are used while expanding, and not written out
+expand('gw\nb -- (3,1) D', { styles: { D: 'photon' } });
+expand('fock vertical mom=q', { unit: 30 });
+```
+
+- `expand(source, { styles, unit })` returns the block written out by hand. It throws if the block has errors, with
+  one `line N: message` per error, in line order, as `render()` lists them.
+- `templatesIn(source, { styles })` returns the names of the templates a block uses, each once, in the order they
+  first appear. An empty array means the block is written by hand; the plugin then shows one code block instead of
+  two tabs.
+
+The [API reference](/docs/reference/api) has the full signatures.
+
+## When no template fits
+
+Start from the By hand form of the nearest template, and change what you need. `sigma2` draws its two interactions with
+the same boson. For a phonon crossed by a screened Coulomb line, open the By hand tab of `sigma2 crossed`:
+
+```feynman source
+sigma2 crossed
+```
+
+Paste it into a block of your own, change the style of the second interaction to `screened`, and label both:
+
+```feynman source
+v0 at (0, 0)
+v1 at (1.15, 0)
+v2 at (2.3, 0)
+v3 at (3.45, 0)
+(-0.575, 0) -- v0 fermion
+v3 -- (4.025, 0) fermion
+v0 -> v1 fermion
+v1 -> v2 fermion
+v2 -> v3 fermion
+v0 -- v2 phonon bend=0.5 "F"
+v1 -- v3 screened over bend=0.5 "W"
+```
+
+The `over` that came with the copy keeps W passing over F: the phonon gets a gap where W crosses it, and W, a dashed
+line, keeps a dash on the crossing. The vertex names, `v0` to `v3`, are the ones you would use to attach lines to the
+template itself ([Using templates](/docs/guides/templates#attaching-more-lines)). While you draft, `grid` on a line of
+its own draws the unit grid and writes every vertex's name over the picture.
+
+More diagrams written by hand are on the [Written by hand](/docs/examples/written-by-hand) page.

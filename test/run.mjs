@@ -532,6 +532,60 @@ writeFileSync(new URL('index.html', out), `<!doctype html><meta charset="utf-8">
   ok(msgs.length === 1 && tree2.children.length === 2 && tree2.children[1].type === 'code', 'a block with errors is reported once, and its source shown without a By hand tab');
 }
 
+// ---- what the docs writers found: consistency, accessibility, messages ----
+{
+  const e = (src) => render(src).errors.map((x) => x.message).join(' | ');
+  const { expand, renderModel: rm, Term: T } = await import('../src/index.js');
+  // a style's dressed is kept inside a template, so the template and its By hand form draw the same
+  for (const src of ['style F = phonon dressed\nfan-migdal phonon=F', 'style S = coulomb dressed\nsigma2 boson=S']) {
+    const a = render(src, { id: 'x' }).svg.replace(/aria-label="[^"]*"/, ''), b = render(expand(src), { id: 'x' }).svg.replace(/aria-label="[^"]*"/, '');
+    ok(a === b && (src.includes('phonon') ? /stroke-width:3\.2/.test(a) : (a.match(/stroke-dasharray/g) || []).length >= 4), `${src.split('\n')[1]}: a style's dressed holds in the template, as By hand draws it`);
+  }
+  // renderModel takes styles as render() does; render() keeps the default unit for one that is not positive
+  const tm = new T(); tm.node('a', 0, 0); tm.node('b', 2, 0); tm.edge('a', 'b', 'D', {});
+  ok(!rm(tm, { styles: { D: 'photon' } }).errors.length, 'renderModel takes { D: "photon" } styles');
+  ok(render('fock', { unit: -5 }).svg === render('fock').svg && render('fock', { unit: 'abc' }).svg === render('fock').svg, 'a unit that is not a positive number leaves the default');
+  // accessible descriptions: TeX read as text, and vertices when there are no lines
+  const aria = (src) => (render(src).svg.match(/aria-label="([^"]*)"/) || [])[1];
+  ok(!/\\/.test(aria('dyson')) && /G sup 0/.test(aria('dyson')) && aria('a at 0,0 blob "\\Sigma"; b at 2,0 box "K"') === 'blob Σ, box K', 'descriptions read TeX as text, and list the vertices of a diagram without lines');
+  // the drafting grid names its vertices on top of everything
+  const gsvg = render('fock vertical inner=chi\ngrid').svg;
+  ok(gsvg.lastIndexOf('feyn-grid') > gsvg.lastIndexOf('<path d="M0 -'), 'the grid writes the vertex names over the shapes');
+  // drawing
+  const coils = (render('(0,0) -- (2,0) gluon double').svg.match(/<path d="M[^"]+"/g) || []).slice(0, 2);
+  ok(coils.length === 2 && coils[0] !== coils[1], 'a double gluon draws two strands');
+  ok(/opacity:0[;"]/.test(render('(0,0) -- (2,0) phonon opacity=0').svg), 'opacity=0 is an opacity');
+  const startHead = +render('(0,0) -> (2,0) fermion arrow=start').svg.match(/translate\((-?[\d.]+) /)[1];
+  ok(startHead > 0 && startHead < 10, 'arrow=start puts the head inside the line, at its start');
+  // messages
+  ok(/loop draws a line from a vertex back to itself/.test(e('a at 0,0; b at 2,0\na -- b phonon loop')), 'a loop between two vertices is an error');
+  ok(/anchor is start, middle or end/.test(e('text "x" at 0,0 anchor=foo')), "a text's anchor is checked");
+  ok(/takes its arrow from in or out/.test(e('a at 0,0\nleg a left arrow=end')) && /leg: unknown word "D"/.test(e('a at 0,0\nleg a left D')), 'a leg rejects arrow= and names an unknown word as a line does');
+  ok(/give the line one with mom=/.test(e('(0,0) -- (2,0) phonon momside=left')) && /leg: momside=/.test(e('a at 0,0\nleg a left phonon mompos=0.3')), 'momentum options need mom= on a line too');
+  ok(/unknown option "rungs"; did you mean rung\?/.test(e('ladder rungs=3')) && /n expects a number, as in n=/.test(e('ladder n')), 'a template suggests the option meant, and a number option wants a number');
+  ok(/unknown template "fok"; did you mean fock\?/.test(e('fok vertical')) && /unknown template "fok"; did you mean fock\?/.test(e('fok mom=q')) && /did you mean ladder\?/.test(e('ladderr')), 'a misspelt template is named, with options or alone');
+  ok(parse('\n\nfock').items[0].term.nodes.get('a').line === 3, "a template's vertices carry the line of its statement");
+  const eq = render('a at 0,0\n\ndyson style=D').errors;
+  ok(eq.filter((x) => /unknown line style/.test(x.message)).length === 1 && eq.every((x) => x.line === 3), "an equation template's errors carry its line, each message once");
+  ok(/write a -- a … loop/.test(e('a at 0,0\nleg a left loop')), 'a loop on a leg names the vertex, not a point the leg invented');
+  ok(render('fock\n- hartree').html.includes('−') && !/>-</.test(render('fock\n- hartree').html), 'a - operator is set as a minus');
+  ok(parseLabel('\\Uparrow')[0].t === '⇑', '\\Uparrow is ⇑');
+  let order = ''; try { expand('a at 0,0\na -> c fermion\nb -- d photon\nwiggle'); } catch (x) { order = x.message; }
+  ok(order.indexOf('line 2') < order.indexOf('line 3'), 'expand() lists its errors in the order of the lines');
+  ok(parse('bubble width=2.4').items[0].term.nodes.get('b0').x - parse('bubble width=2.4').items[0].term.nodes.get('a0').x === 2.4, 'bubble width= sets its width');
+}
+// ---- remark: line numbers and strict ----
+{
+  const { remarkFeynman } = await import('../remark/index.js');
+  const msgs = [], tree = { type: 'root', children: [{ type: 'code', lang: 'feynman', meta: null, value: '\n\na at 0,0\na -> c fermion', position: { start: { line: 10 } } }] };
+  remarkFeynman({ quiet: true })(tree, { message(r, place) { msgs.push(place?.line); }, fail() {} });
+  ok(msgs[0] === 14, `blank lines at the top of a block still count for the line reported (got ${msgs[0]})`);
+  const seen = []; let threw = false;
+  const two = { type: 'root', children: [1, 2].map(() => ({ type: 'code', lang: 'feynman', meta: null, value: 'a at 0,0\na -> c fermion', position: { start: { line: 1 } } })) };
+  try { remarkFeynman({ quiet: true, strict: true })(two, { message(r) { seen.push(r); }, fail(r) { threw = r; throw new Error(r); } }); } catch {}
+  ok(seen.length === 2 && /1 more/.test(threw), 'strict reports every error, then fails once');
+}
+
 // ---- programmatic API ----
 {
   const t = new Term();

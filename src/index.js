@@ -3,7 +3,7 @@
 //   import { render } from 'fumadocs-feynman';
 //   const { html, svg, errors } = render('fan-migdal dressed');
 
-import { parse } from './parse.js';
+import { parse, styleDefs } from './parse.js';
 import { renderTerm, svgWrap, equationHTML, equationSVG, FONT_INLINE } from './render.js';
 import { labelHTML, escapeXML } from './text.js';
 import { Term, Equation } from './model.js';
@@ -57,14 +57,21 @@ function assemble(results, ops, { caption, title }, breaks = []) {
  * Returns { html, svg, errors }. html is a <figure> (responsive for equations); svg is one standalone SVG.
  * With errors, html is an error box that lists them with line numbers and svg is ''.
  */
+// a unit is a positive number of px; anything else leaves the default (40), as the component does
+const positive = (v) => (Number.isFinite(+v) && +v > 0 ? +v : undefined);
+
 export function render(source, options = {}) {
+  options = { ...options, unit: positive(options.unit) };
   const doc = parse(source, options);
   const errors = [...doc.errors];
   const unit = doc.unit || options.unit || 40;
   const uid = options.id || `feyn-${hash(String(source))}`;
   const results = renderItems(doc.items, { unit, uid, styles: doc.styles, errors, scriptItalic: options.scriptItalic, grid: doc.grid });
   if (!doc.items.length) errors.push({ message: 'empty diagram' });
+  // in line order, and each message once per line (a template's lines can share one mistake)
   errors.sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
+  const seen = new Set();
+  for (let i = errors.length - 1; i >= 0; i--) { const k = `${errors[i].line}|${errors[i].message}`; if (seen.has(k)) errors.splice(i, 1); else seen.add(k); }
   if (errors.length) return { html: errorHTML(errors, source), svg: '', errors };
   const ops = doc.items.map((it) => it.op || ''), breaks = doc.items.map((it, i) => i > 0 && !!it.br);
   return { ...assemble(results, ops, options, breaks), errors };
@@ -80,10 +87,12 @@ export function renderSVG(source, options = {}) {
 /** Render a diagram built in code with Term / Equation. */
 export function renderModel(model, options = {}) {
   const errors = [];
+  // site styles as render() takes them, { D: 'photon' }
+  const styles = styleDefs(options.styles, errors);
   const items = model instanceof Equation
     ? model.terms.map((t, i) => (t.ellipsis ? { op: model.ops[i], ellipsis: true } : { op: model.ops[i], term: t }))
     : [{ op: '', term: model }];
-  const results = renderItems(items, { unit: options.unit || 40, uid: options.id || 'feyn-model', styles: options.styles || {}, errors, scriptItalic: options.scriptItalic, grid: !!options.grid });
+  const results = renderItems(items, { unit: positive(options.unit) || 40, uid: options.id || 'feyn-model', styles, errors, scriptItalic: options.scriptItalic, grid: !!options.grid });
   if (errors.length) return { html: errorHTML(errors, ''), svg: '', errors };
   return { ...assemble(results, items.map((it) => it.op || ''), { title: model.title, ...options }), errors };
 }

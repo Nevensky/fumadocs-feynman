@@ -112,6 +112,15 @@ function editDistance(a, b) {
   for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
   return d[a.length][b.length];
 }
+/** The name among `names` nearest to `w`, within two edits and less than half its length, or null. */
+function closest(w, names) {
+  let best = null, bd = 3;
+  for (const nm of names) { const d = editDistance(w, nm); if (d < bd && d < Math.max(2, w.length / 2)) { bd = d; best = nm; } }
+  return best;
+}
+/** An error for momentum options on a line that has no momentum arrow, or null. */
+const momLone = (o) => (!o.mom && (o.momside || o.momdir || o.mompos != null) ? 'momside=, momdir= and mompos= place a momentum arrow: give the line one with mom="…"' : null);
+
 function unknownKey(key, keys, what) {
   let best = null, bd = 3;
   for (const k of keys) { const dd = editDistance(key, k); if (dd < bd) { bd = dd; best = k; } }
@@ -185,7 +194,7 @@ function styleWordError(name, w) {
 }
 
 /** Parse style definitions given as options: { D: 'photon', F: 'phonon dressed' }. */
-function styleDefs(map, errors) {
+export function styleDefs(map, errors) {
   const out = {};
   for (const [name, def] of Object.entries(map || {})) {
     const toks = tokenize(String(def));
@@ -232,7 +241,7 @@ export function parse(source, options = {}) {
       // '|' separates diagrams set side by side with no operator between them; a row break alone on its line
       // carries over to the operator line after it
       if (cur.br && !cur.stmts.length) { br = true; groups.pop(); }
-      cur = { op: custom ? custom[1] : m ? (m[1] === '|' ? '' : m[1]) : '', stmts: [], line, br };
+      cur = { op: custom ? custom[1] : m ? (m[1] === '|' ? '' : m[1] === '-' ? '−' : m[1]) : '', stmts: [], line, br };
       groups.push(cur);
       text = (custom ? custom[2] : m ? m[3] : text).trim();
       if (!text) return;
@@ -330,7 +339,11 @@ function statement(term, s, ctx) {
     for (; k < t.length; k++) {
       if (t[k].k === 'str') str = t[k].v;
       else if (t[k].k === 'word' && t[k].v === 'at') { const [p, nk] = readAt(k + 1); at = p; k = nk - 1; }
-      else if (t[k].k === 'kv') { if (!TEXT_KEYS.includes(t[k].key)) return err(unknownKey(t[k].key, TEXT_KEYS, 'text')); opts[t[k].key] = t[k].v; }
+      else if (t[k].k === 'kv') {
+        if (!TEXT_KEYS.includes(t[k].key)) return err(unknownKey(t[k].key, TEXT_KEYS, 'text'));
+        if (t[k].key === 'anchor' && !['start', 'middle', 'end'].includes(t[k].v)) return err(`text: anchor=${t[k].v}: the anchor is start, middle or end`);
+        opts[t[k].key] = t[k].v;
+      }
       else if (t[k].k === 'word' && t[k].v === 'upright') opts.upright = true;
       else return err(`text: unexpected "${t[k].v ?? t[k].k}" (write: text "..." at x,y [size=…] [color=…] [anchor=start|middle|end] [upright])`);
     }
@@ -356,6 +369,7 @@ function statement(term, s, ctx) {
       if (x.k === 'str') label = x.v;
       else if (x.k === 'kv') {
         if (x.key === 'label') { label = String(x.v); continue; }
+        if (x.key === 'arrow') return err('leg: a leg takes its arrow from in or out, as in "leg a left in", not from arrow=');
         const oe = edgeOption(x.key, x.v, opts);
         if (oe) return err(`leg: ${oe}`);
       } else if (x.k === 'word' && (x.v === 'in' || x.v === 'out')) inout = x.v;
@@ -370,8 +384,11 @@ function statement(term, s, ctx) {
         if (!dirGiven) return err(`leg: write the direction first, as in "leg ${node} left ${x.v}"; "leg ${node} ${x.v}" alone is a leg pointing ${x.v === 'above' ? 'up' : 'down'}`);
         const pe = pageWord(opts, x.v);
         if (pe) return err(`leg: ${pe}`);
-      } else return err(`leg: unexpected "${x.v ?? x.k}"`);
+      } else if (x.k === 'word') return err(`leg: unknown word "${x.v}" (line styles: ${Object.keys(LINE_STYLES).join(', ')})`);
+      else return err(`leg: unexpected "${x.v ?? x.k}"`);
     }
+    const ml = momLone(opts);
+    if (ml) return err(`leg: ${ml}`);
     const n = term.nodes.get(node);
     const [dx, dy] = dirVec(typeof dir === 'number' ? dir : dir, 180);
     const p = term.pt(n.x + dx * len, n.y - dy * len);
@@ -425,6 +442,8 @@ function statement(term, s, ctx) {
       else return err(`unknown word "${x.v ?? x.k}" (line styles: ${Object.keys(LINE_STYLES).join(', ')})`);
     }
     if (eps.length > 2 && label) return err('a chain of lines (a -> b -> c) cannot take a label; write the lines separately');
+    const ml = momLone(opts);
+    if (ml) return err(ml);
     const ep = (x) => (x.k === 'pt' ? x.v : x.v);
     for (let i = 0; i < ops.length; i++) {
       const arrow = opts.arrow === 'none' ? 'none' : ops[i] === '->' ? 'fwd' : ops[i] === '<-' ? 'back' : 'none';
@@ -454,26 +473,38 @@ function statement(term, s, ctx) {
       else if (x.k === 'word') { key = x.v; v = true; }
       else if (x.k === 'str' && 'label' in params) { key = 'label'; v = x.v; }
       else { err(`${w0}: unexpected "${x.v ?? x.k}"`); continue; }
-      if (!(key in params)) { err(`${w0}: unknown option "${key}" (options: ${Object.keys(tpl.params).join(', ')})`); continue; }
+      if (!(key in params)) {
+        const near = closest(key, Object.keys(tpl.params));
+        err(`${w0}: unknown option "${key}"${near ? `; did you mean ${near}?` : ''} (options: ${Object.keys(tpl.params).join(', ')})`);
+        continue;
+      }
       const def = tpl.params[key];
       given.add(key);
-      if (typeof def === 'number') { const n = Number(v); if (!isFinite(n)) { err(`${w0}: ${key} expects a number`); continue; } params[key] = n; }
+      if (typeof def === 'number') {
+        const n = Number(v);
+        if (v === true || !isFinite(n)) { err(`${w0}: ${key} expects a number, as in ${key}=${def || 3}`); continue; }
+        params[key] = n;
+      }
       else if (typeof def === 'boolean') params[key] = v === true || v === 'true';
       else if (v === true) { err(`${w0}: ${key} expects a value, as in ${key}=...`); continue; }
       else params[key] = String(v);
     }
     let out;
     try { out = tpl.build(params, { unit: ctx.unit, given }); } catch (e) { return err(`${w0}: ${e.message}`); }
-    if (out instanceof Equation) return out;
+    if (out instanceof Equation) {
+      // its terms' vertices and lines carry the template's line too, for errors found while drawing them
+      for (const tm of out.terms) if (tm && !tm.ellipsis) { for (const n of tm.nodes.values()) n.line ??= s.line; for (const e of tm.edges) e.line ??= s.line; }
+      return out;
+    }
     // merge a diagram template into the current term (its named vertices can be referenced afterwards);
     // its invented points are renumbered so that they cannot replace points the term already has
     const rename = new Map();
     for (const [k, n] of out.nodes) {
-      if (n.anon) { const nk = `#p${term._anon++}`; rename.set(k, nk); term.nodes.set(nk, { ...n, name: nk }); }
-      else term.nodes.set(k, n);
+      if (n.anon) { const nk = `#p${term._anon++}`; rename.set(k, nk); term.nodes.set(nk, { ...n, name: nk, line: n.line ?? s.line }); }
+      else term.nodes.set(k, { ...n, line: n.line ?? s.line });
     }
     const re = (ep) => (ep.node && rename.has(ep.node) ? { ...ep, node: rename.get(ep.node) } : ep);
-    term.edges.push(...out.edges.map((e) => ({ ...e, from: re(e.from), to: re(e.to) })));
+    term.edges.push(...out.edges.map((e) => ({ ...e, from: re(e.from), to: re(e.to), line: e.line ?? s.line })));
     term.texts.push(...out.texts);
     if (!term.title) term.title = out.title;
     if (out.caption && !term.caption) term.caption = out.caption;
@@ -481,6 +512,12 @@ function statement(term, s, ctx) {
   }
 
   if (bad) return err(`cannot read "${s.text}"`);
+  // a misspelt template: a name close to one, with that template's options or flags after it
+  if (w0 && !term.nodes.has(w0) && t.length > 1) {
+    const tn = closest(w0, Object.keys(TEMPLATES));
+    const opts = tn && TEMPLATES[tn] && t.slice(1).some((x) => (x.k === 'kv' && x.key in TEMPLATES[tn].params) || (x.k === 'word' && (TEMPLATES[tn].flags?.[x.v] || typeof TEMPLATES[tn].params[x.v] === 'boolean')));
+    if (opts) return err(`unknown template "${w0}"; did you mean ${tn}?`);
+  }
   // a vertex label or restyle for a name that is not a vertex of this term (a typo, or a label before its vertex)
   if (w0 && t.length > 1 && t.slice(1).every((x) => x.k === 'str' || x.k === 'kv' || (x.k === 'word' && (SHAPES[x.v] || NODE_FLAGS.has(x.v) || PAGE_HINT[x.v])))) {
     if (w0.includes('.')) return err(`"${w0}" is an anchor of a vertex: label the vertex itself`);
@@ -489,6 +526,9 @@ function statement(term, s, ctx) {
     for (const nm of names) { const d = editDistance(w0, nm); if (d < bd) { bd = d; best = nm; } }
     return err(`no vertex "${w0}" here${best ? `; did you mean ${best}?` : ''} (a vertex is labelled after it is placed${names.length ? `; the vertices so far: ${names.join(', ')}` : ''})`);
   }
-  if (w0 && t.length === 1) return err(`unknown template or statement "${w0}" (templates: ${Object.keys(TEMPLATES).join(', ')})`);
+  if (w0 && t.length === 1) {
+    const tn = closest(w0, Object.keys(TEMPLATES));
+    return err(`unknown template or statement "${w0}"${tn ? `; did you mean ${tn}?` : ''} (templates: ${Object.keys(TEMPLATES).join(', ')})`);
+  }
   return err(`cannot read "${s.text}": expected a vertex (a at 0,0), a line (a -> b fermion) or a template`);
 }

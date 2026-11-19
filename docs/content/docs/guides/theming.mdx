@@ -1,0 +1,227 @@
+---
+title: Theming
+description: How diagrams take their colours, fonts and size from the site, and follow its light and dark themes.
+---
+
+Diagrams are drawn in CSS variables, so they follow your fumadocs theme and switch with its dark mode, with no
+JavaScript and nothing drawn again. Set the variables to change the palette or the fonts, and set `unit` to change
+the size. Switch this site to dark mode to see the diagram below follow it:
+
+```feynman caption="Phonon-assisted absorption"
+a at (0, 0) current; b at (1.6, 0) eph
+leg a left 1 fermion in "n\mathbf{k}" below
+a -> b fermion "n'\mathbf{k}" below
+leg b right 1 fermion out "m\,\mathbf{k}+\mathbf{q}" below
+(-0.7, 1.1) -- a photon "\hbar\omega"
+b -- (2.3, 1.1) phonon "\mathbf{q}\nu"
+```
+
+## The stylesheet
+
+The `<Feynman>` component adds the theme's stylesheet to the page's `<head>` itself, once per page, through React 19's
+`<style href precedence>`. On React 19 there is nothing to set up.
+
+With React 18, or to load the stylesheet with your own CSS, import it and turn the injected copy off:
+
+<Steps>
+<Step>
+
+Import the stylesheet in your global CSS:
+
+```css title="app/global.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@import 'fumadocs-feynman/style.css';
+```
+
+</Step>
+<Step>
+
+Register a component that does not inject it:
+
+```tsx title="components/mdx.tsx"
+import { createFeynman } from 'fumadocs-feynman/react';
+
+const Feynman = createFeynman({ injectStyle: false });
+// return { ...defaultMdxComponents, Feynman, ...components }
+```
+
+Where you render `<Feynman>` from `fumadocs-feynman/react` yourself, pass it `injectStyle={false}`.
+
+</Step>
+</Steps>
+
+The stylesheet sets the variables below, for light and dark, and styles the figure, its caption and the error box.
+A diagram still draws without it, because each colour is written as `var(--feyn-<token>, <light value>)`: it falls
+back to the light palette and does not follow the theme. Its labels fall back to a serif stack without KaTeX's fonts,
+[`FONT_INLINE`](/docs/reference/api#font_inline). The standalone SVG that `render()` returns does the same wherever it
+is opened.
+
+`themeCSS()` from `fumadocs-feynman` returns the same stylesheet as a string, and `style.css` is written from it. On a
+site without fumadocs, `themeCSS({ fumadocs: false })` gives ink, muted and surface fixed values in place of fumadocs'
+variables, and `themeCSS({ media: false })` leaves out the rule that follows the operating system's dark setting.
+
+## Colours
+
+Every colour is a variable named `--feyn-<token>`, after the tokens that `color=` takes (see
+[Notation](/docs/guides/notation#colours)).
+
+### Hues
+
+Five hues mark the particles and the couplings. Each has a `-text` variant for the labels drawn in it, which stays
+readable as text on the page's background.
+
+| Variable | Light | Dark | Draws |
+| --- | --- | --- | --- |
+| `--feyn-electron` | `#2350c8` | `#6688f2` | electron lines and their arrows, bubbles and lenses |
+| `--feyn-phonon` | `#c26a00` | `#c67c18` | phonon lines, `eph` vertices |
+| `--feyn-photon` | `#b5306c` | `#d95e94` | photon, Coulomb, screened and field lines, `dipole` vertices |
+| `--feyn-c4` | `#0b8aa3` | `#169fb6` | teal: `current` vertices, and Hedin's vertex Γ (`gamma=` on `gw` and `bubble`, and `hedin-vertex`) |
+| `--feyn-c5` | `#6d45c4` | `#9372ee` | violet: gluon lines, `spin` vertices, the T matrix of `gt` and `gt-bse`, Λ in `parquet` |
+| `--feyn-electron-text` | `#2350c8` | `#93adff` | labels in the electron hue |
+| `--feyn-phonon-text` | `#92500a` | `#f0aa4f` | labels in the phonon hue |
+| `--feyn-photon-text` | `#a1295f` | `#f286b5` | labels in the photon hue |
+| `--feyn-c4-text` | `#076a80` | `#5cc8dc` | teal labels, and the vertex names that `grid` writes |
+| `--feyn-c5-text` | `#5a37a8` | `#b9a2ff` | violet labels |
+
+### Ink, muted and surface
+
+The three neutral colours come from fumadocs. The stylesheet sets them to fumadocs' own variables, so diagrams match
+the text and the background of whichever fumadocs theme the site uses; the values after them are the fallbacks for a
+page without fumadocs.
+
+| Variable | Light | Dark | Draws |
+| --- | --- | --- | --- |
+| `--feyn-ink` | `var(--color-fd-foreground, #151b29)` | `var(--color-fd-foreground, #e3e8f1)` | dots, squares, crosses, ⊗ and open circles; plain, scalar, ghost and boson lines; the labels of dots and grey shapes, momentum labels and free text |
+| `--feyn-muted` | `var(--color-fd-muted-foreground, #5a6477)` | `var(--color-fd-muted-foreground, #96a0b3)` | disks, hatched disks, blobs, boxes and triangles; impurity lines; momentum arrows; the operators of equations, and captions; the drafting grid |
+| `--feyn-surface` | `var(--color-fd-background, #ffffff)` | `var(--color-fd-background, #141a26)` | the opaque fill of disks, blobs, boxes, triangles, lenses and open circles, which hides the ends of the lines under them, and the gap where one line passes over another |
+
+## Dark mode
+
+The dark values apply under the class `dark`, which fumadocs sets on `<html>` whenever the site is dark, and under
+`data-theme="dark"`. They also apply when the operating system is set to dark, unless the root element has the class
+`light` or `data-theme="light"`. The SVG only names the variables, so a theme switch recolours every diagram on the
+page at once.
+
+## Your own colours and fonts
+
+Set the variables on `.feyn`, the figure that holds each diagram, and on `.dark .feyn` for dark mode. Change a hue and
+its `-text` variant together:
+
+```css title="app/global.css"
+/* phonons in green */
+.feyn {
+  --feyn-phonon: #15803d;
+  --feyn-phonon-text: #166534;
+}
+.dark .feyn {
+  --feyn-phonon: #22c55e;
+  --feyn-phonon-text: #4ade80;
+}
+```
+
+The package sets its values on the root element, and the injected stylesheet comes after yours, so a rule of yours on
+`:root` would lose to it. Values set on `.feyn` take precedence over the ones the figure would inherit from the root,
+whatever the order of the stylesheets. Variables set on any other element apply to the diagrams inside it in the same
+way. Where diagrams sit on a background other than the page's, such as a card, set `--feyn-surface` to that
+background, or the gaps where lines cross and the fills under disks and blobs keep the page's colour.
+
+### Fonts
+
+Labels are set in two fonts, also variables:
+
+| Variable | Default | Sets |
+| --- | --- | --- |
+| `--feyn-font-math` | `"KaTeX_Math"`, then Source Serif 4, STIX Two Text, Cambria, Georgia, Times New Roman | the italic letters of labels: Latin letters and lower-case Greek |
+| `--feyn-font-text` | `"KaTeX_Main"`, then the same | the upright rest of each label, and the operators and term captions of equations |
+
+Both start with KaTeX's fonts, so on a site that renders math with KaTeX and loads its stylesheet, the labels match
+the formulas in the text. Elsewhere the browser uses the first of the others that it has. To use another face, load
+it on the page and set both variables:
+
+```css title="app/global.css"
+.feyn {
+  --feyn-font-math: 'STIX Two Text', serif;
+  --feyn-font-text: 'STIX Two Text', serif;
+}
+```
+
+Labels are placed at build time from widths measured for serif faces, so choose a serif face of ordinary width. A
+figure's caption (the fence's `caption=`, or the `caption` statement of a single diagram) is set in the page's own
+font.
+
+## Size
+
+Coordinates are in units of 40 px. Change the unit for one block with a `unit` statement in it (`unit 30` on a line
+of its own), or with `unit=` on its fence:
+
+````md
+```feynman unit=30
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+````
+
+The same block at 30 and at 50 px per unit:
+
+```feynman unit=30 caption="unit=30"
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+
+```feynman unit=50 caption="unit=50"
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+
+Only the geometry scales. Line weights, arrowheads, dots and labels keep their size in px, so every diagram on a site
+has the same strokes and the same type, whatever its unit. A diagram wider than the column is scaled down to fit it,
+strokes and all.
+
+For the whole site, give the same unit to `createFeynman()` and to the remark plugin, as
+[Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit) shows. The plugin needs it because some
+templates size themselves by the unit ([Momentum](/docs/guides/momentum#room-for-the-arrow-standing-up)). A block's
+`unit` statement wins over its fence's `unit=`, and the fence's over the site's.
+
+## Equations
+
+An equation is set like a line of text, with each term on the math axis, where its `=` and `+` are centred. When it is
+wider than the column it wraps between terms, and each operator stays with the term after it. The lines are balanced
+(`text-wrap: balance`), so that four terms wrap two and two rather than three and one. A single term wider than the
+column scrolls sideways. This equation wraps in a narrow window:
+
+```feynman source
+propagator style=coulomb dressed label=W
+= propagator style=coulomb label=v
++ rpa n=1 extLabel=v
++ rpa n=2 extLabel=v
++ ...
+```
+
+To choose the rows yourself, start a line with `\\`, as in TeX: see
+[Writing diagrams](/docs/guides/writing-diagrams#equations).
+
+## Upright and italic scripts
+
+Labels are typeset as physics is: Latin letters italic, capital Greek upright, lower-case Greek italic. Latin letters
+in sub- and superscripts are upright, because they are mostly names, such as ep, cn or irr:
+
+<Feynman chart='S at (0, 0) blob "\Sigma^{ep}_{nm}" r=0.5; (-1, 0) -- S fermion; S -- (1, 0) fermion' caption="Scripts upright: the default" />
+
+Where the scripts are indices, as `nm` is here, turn on `scriptItalic`, and keep the names upright with `\mathrm{}`
+(`\Sigma^{\mathrm{ep}}_{nm}`):
+
+<Feynman chart='S at (0, 0) blob "\Sigma^{\mathrm{ep}}_{nm}" r=0.5; (-1, 0) -- S fermion; S -- (1, 0) fermion' scriptItalic caption="scriptItalic" />
+
+`scriptItalic` is a [prop of the component](/docs/reference/component#props) and an
+[option of `render()`](/docs/reference/api#renderoptions); a fence cannot set it. For every diagram on the site, add
+`scriptItalic: true` to the defaults you give `createFeynman`. For one diagram, write it as a
+`<Feynman chart="…" scriptItalic />` element, as above. For one script in one label, write it in `\mathit{}`, as in
+`G_{\mathit{nm}}`.

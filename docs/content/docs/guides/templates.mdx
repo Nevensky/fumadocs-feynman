@@ -1,0 +1,264 @@
+---
+title: Using templates
+description: Draw a standard diagram from one line, then label, restyle and extend it with statements of your own.
+---
+
+A template draws a standard diagram from one line. `fock` is the Fock exchange self-energy: two vertices on the
+electron line, the bare Coulomb line v between them, and the two external legs.
+
+```feynman source
+fock
+```
+
+A template stands for statements you could write yourself, and the **By hand** tab under the diagram shows them:
+the vertices, then the lines. Use the template for the diagram it draws, and its By hand form as the start of one
+that no template draws.
+
+## Writing a template
+
+A template statement is the template's name, then its options:
+
+```feynman source
+ladder n=3 pp rung=phonon rungLabel=F
+```
+
+| You write | It sets | Example |
+| --- | --- | --- |
+| `key=value` | one option | `n=3`, `rung=phonon`, `G="m,\mathbf{k}+\mathbf{q}"` |
+| a flag | the options it stands for | `pp` is `channel=pp`; in `exciton`, `charge` is `vertex=charge ext=screened extLabel=W` |
+| the name of an on/off option | that option, on | `dressed`, `vertical`, `crossed` |
+| a quoted string | the `label` option, in the templates that have one | `propagator "G"`, `bubble "P"` |
+
+- Put text that has spaces or TeX in double quotes, as in `label="\Sigma^{ep}"`. A plain word or a number needs none.
+- `=false` turns off an option that is on by default: `gw dressed=false`, `gt spin=false`.
+- Each option has the type of its default. A number option takes a number after `=`: `ladder n=x` and a bare
+  `ladder n` are errors (`ladder: n expects a number, as in n=3`). A text option needs a value: `ladder rung` is an
+  error (`ladder: rung expects a value, as in rung=...`).
+- Options and flags apply from left to right, so a flag can undo an option written before it:
+  `exciton extLabel="W^T" charge` ends with `extLabel=W`, because `charge` sets it. Write flags first.
+
+The [template reference](/docs/reference/templates) lists every template with its options, their defaults and its
+flags.
+
+## Errors in a template statement
+
+An option that the template does not have is an error that suggests the nearest option and lists the ones there
+are, and a misspelt template name gets the nearest template suggested: [Errors](/docs/guides/errors#unknown-option)
+shows these messages.
+
+Templates also check the values they are given, and the options that only work together, and say what they
+expect:
+
+```text
+gt: form=round: the forms are arch, box and ladder
+fock: inner= needs vertical: the inner diagram sits on the straight interaction of the standing self-energy
+nbody: rungs: "14" needs two different lines between 1 and 2
+```
+
+A fumadocs build reports each error with its line in the `.mdx` file, and the page shows the errors where the
+diagram would be. With `strict: true`, the build reports every error and then fails. See
+[Errors](/docs/guides/errors).
+
+## Adding statements to a template
+
+A template that draws one diagram can share its term with statements of your own, written on the lines after it
+(up to the next line that starts with an operator) or after a `;` on the same line. Its vertices keep their names,
+so these statements can label a vertex, change its shape, and attach lines to it.
+
+### The names of the vertices
+
+Add `grid` on a line of its own to see the names: it draws the unit grid under every term of the block, and writes
+the name of every vertex on top, where a lens or a blob cannot hide it. The By hand tab lists them too.
+
+```feynman source
+grid
+fock vertical inner=chi
+| vertex-correction ext=photon rung=phonon rungLabel=F
+```
+
+The names that come up most often:
+
+| Name | Vertex |
+| --- | --- |
+| `a`, `b` | The two vertices of `fan-migdal`, `fock` and `gw`: `a` on the left and `b` on the right, or `a` below and `b` above with `vertical`. In `hartree`, `a` is on the electron line and `b` carries the loop. |
+| `c`, `d`, `X` | With `inner=`: where the interaction meets the inner diagram, `c` below and `d` above, and the lens `X` of `inner=chi`. |
+| `v` | The vertex of `debye-waller`, and the vertex of `vertex-correction` where the external line arrives. |
+| `Gam` | Hedin's vertex triangle Γ, in `gw gamma=` and `bubble gamma=`. |
+| `S` | The blob of `sigma`. |
+| `v0` to `v3` | The vertices along the electron line of `sigma2`, from the left. |
+| `v1`, `v2`, … | The vertices of `arcs`, numbered as in its `above=` and `below=`. |
+| `a0`, `b0`, `a1`, `b1`, … | The left and right vertex of each bubble of `bubble`, `rpa` and `exciton`, counted from 0. `bubble gamma=` has `a` and `Gam`. |
+| `t1`, `u1`, … | The upper and lower ends of the rungs of `ladder` and `crossed`. |
+| `A`, `B` | The ends of the rung of `vertex-correction`, upper and lower; `A1`, `B1`, … with two rungs or more. |
+| `K` | The box of `box`. |
+| `v1_1`, `v2_1`, … | The rung ends of `nbody`, `trion` and `biexciton`: the line, then the column. |
+
+The others, such as the rung ends inside the bubbles of `bubble`, `rpa` and `exciton` (`t0_1`, `u0_1`) or inside
+`inner=bubble` (`l1`, `r1`), and the vertices of `gt`, are on the By hand tab.
+
+<Callout type="warn">
+A template's vertex replaces a vertex of the same name written before it, and `a at x,y` written after the template
+replaces the template's `a`, shape and label included. Write your own vertices after the template, under names it
+does not use, and change a template's vertex by its name alone, as below.
+</Callout>
+
+## Labelling and restyling vertices
+
+A statement that starts with the name of a vertex changes that vertex in place. It takes a label, a shape and
+vertex options such as `pos=` and `color=`; the vertex keeps its position and its lines. The label goes in double
+quotes, and `pos=` puts it `below`, `above`, `left`, `right`, at a corner (`ne`, `nw`, `se`, `sw`) or at an angle.
+Here the vertices of the exchange self-energy carry the plane-wave matrix elements ρ of the density:
+
+```feynman source
+fock vertical G="m,\mathbf{k}+\mathbf{q}" v="v(\mathbf{q}+\mathbf{G})"
+a "\rho_{n\mathbf{k},m\mathbf{k}+\mathbf{q}}(\mathbf{G})" pos=below
+b "\rho^*_{n\mathbf{k},m\mathbf{k}+\mathbf{q}}(\mathbf{G})" pos=above
+```
+
+A shape word changes the kind of vertex. In `vertex-correction`, the option `vertex=` sets the vertex `v` where the
+external line arrives, but the ends of the rung have no option of their own, so they are restyled by name. The
+photon couples to the current at `v` (teal), and the phonon to the electron at `A` and `B` (amber):
+
+```feynman source
+vertex-correction ext=photon rung=phonon rungLabel=F
+v current
+A eph
+B eph
+```
+
+The [language reference](/docs/reference/language) lists the vertex shapes and options.
+
+## Attaching more lines
+
+Lines and legs can start or end at a template's vertices, as at your own. Here `ext=none` leaves out the external
+lines of a chain of two bubbles, and a Coulomb line written by hand closes the chain into a ring: the second-order
+ring diagram of the correlation energy, the lowest of the rings that the RPA sums.
+
+```feynman source
+rpa n=2 ext=none
+b1 -- a0 coulomb bulge=1.8 below "v"
+```
+
+`leg` adds an external line to a template's vertex in the same way, as in `leg a0 left photon`.
+
+## Templates in equations
+
+A line that starts with an operator (`=`, `+`, `−`, …) begins the next term of an equation. A term can be
+statements alone, a template, or a template with statements of your own. Here the Hartree–Fock self-energy, a blob
+drawn by hand, is the sum of `hartree` and of `fock` with its vertices labelled r and r′:
+
+```feynman source
+S at (0, 0) blob "\Sigma^{HF}"
+leg S left 0.95; leg S right 0.95
+= hartree
++ fock
+a "\mathbf{r}" pos=below
+b "\mathbf{r}'" pos=below
+```
+
+A line that starts with `|` sets the next diagram beside the last with no operator, and `\\` at the start of a line
+begins a new row; see [Writing diagrams](/docs/guides/writing-diagrams). The templates that draw an equation
+themselves (`dyson`, `hedin-vertex`, `bse`, `tmatrix`, `parquet` and `gt-bse`) must stand alone in their term, but
+operators can join them to other terms.
+
+## Direction and mirror images
+
+The templates in which a particle runs one way take `dir=left`, which runs it from right to left: `propagator`,
+`dyson`, `fan-migdal`, `fock`, `gw`, `sigma2`, `arcs`, `gt`, `gt-bse`, `nbody`, `trion` and `biexciton`. Mostly
+this turns the arrows round and leaves the picture as it is. Where the two ends of a diagram differ, `dir=left`
+draws the mirror image instead, so that the electron still enters through the same part. In `gw gamma=` the
+electron enters through Hedin's vertex Γ, which moves to the right:
+
+```feynman source
+gw gamma="\Gamma"
+| gw gamma="\Gamma" dir=left
+```
+
+`gt` and `gt-bse` work the same way. They follow the figures of Müller, Blügel and Friedrich, PRB 100, 045130 (2019),
+with `dir=left` ([GT](/docs/guides/many-body#gt)), and the default, `dir=right`, is the mirror image. A momentum
+arrow drawn with `mom=` follows the electron: it still points towards the vertex where the electron enters. See
+[Momentum](/docs/guides/momentum).
+
+## The By hand tab and expand()
+
+With the word `source` in its fence, a block that uses a template shows its source in two tabs, as every diagram on
+this page does: **Template**, the block as written, and **By hand**, the same diagram written out vertex by vertex
+and line by line. `expand()` from the package returns the By hand form, and `render(expand(src))` draws the same
+picture as `render(src)`. So the By hand form is a starting point when no template quite fits: copy it and change
+what you need. The vertices keep their names, and the points that a template makes up, such as the free ends of its
+legs, are written as coordinates.
+
+[Source tabs](/docs/guides/source-tabs) shows how to turn the tabs on for every block, what By hand contains and how
+to call `expand()` in code, and the [API reference](/docs/reference/api#expand) gives its signature.
+
+## All templates
+
+Each name links to the template's options and an example in the [template reference](/docs/reference/templates).
+
+### Propagators and Dyson equations
+
+| Template | What it draws |
+| --- | --- |
+| [`propagator`](/docs/reference/templates#propagator) | One line of any style. |
+| [`dyson`](/docs/reference/templates#dyson) | A Dyson equation: full = bare + bare · self-energy · full. |
+| [`sigma`](/docs/reference/templates#sigma) | A self-energy blob with two stubs. |
+
+[Dyson equations](/docs/examples/dyson-equations) has examples for the electron, the phonon and the photon.
+
+### Self-energies
+
+| Template | What it draws |
+| --- | --- |
+| [`fan-migdal`](/docs/reference/templates#fan-migdal) | The Fan–Migdal self-energy: an electron line spanned by a phonon. |
+| [`debye-waller`](/docs/reference/templates#debye-waller) | The Debye–Waller self-energy: a phonon loop on one vertex. |
+| [`hartree`](/docs/reference/templates#hartree) | The Hartree tadpole. |
+| [`fock`](/docs/reference/templates#fock) | The Fock exchange self-energy. |
+| [`gw`](/docs/reference/templates#gw) | The GW self-energy; `gamma=` adds Hedin's vertex. |
+| [`sigma2`](/docs/reference/templates#sigma2) | A second-order self-energy with two boson lines: rainbow, crossed or sequential. |
+| [`arcs`](/docs/reference/templates#arcs) | Interaction arcs above and below one electron line, such as the exchange diagrams of Hedin's expansion. |
+
+[Self-energies](/docs/guides/self-energies) covers them, standing up and with a diagram inside the interaction, and
+[Momentum](/docs/guides/momentum) the momentum arrow beside the interaction.
+
+### Polarization, screening and excitons
+
+| Template | What it draws |
+| --- | --- |
+| [`bubble`](/docs/reference/templates#bubble) | The polarization bubble; `gamma=` closes it with Hedin's vertex. |
+| [`rpa`](/docs/reference/templates#rpa) | A chain of bubbles joined by interaction lines. |
+| [`exciton`](/docs/reference/templates#exciton) | A bubble with a ladder of screened interactions inside. |
+
+### Ladders and vertices
+
+| Template | What it draws |
+| --- | --- |
+| [`ladder`](/docs/reference/templates#ladder) | Two lines exchanging n interactions, particle–hole or particle–particle. |
+| [`crossed`](/docs/reference/templates#crossed) | The maximally crossed ladder (Cooperon). |
+| [`box`](/docs/reference/templates#box) | A four-point vertex with four legs. |
+| [`vertex-correction`](/docs/reference/templates#vertex-correction) | Interactions across a three-point vertex, as a ladder or crossed. |
+| [`hedin-vertex`](/docs/reference/templates#hedin-vertex) | Hedin's vertex equation, Γ = 1 + (δΣ/δG) GGΓ. |
+
+### Two-particle equations
+
+| Template | What it draws |
+| --- | --- |
+| [`bse`](/docs/reference/templates#bse) | The Bethe–Salpeter equation, L = L⁰ + L⁰KL. |
+| [`tmatrix`](/docs/reference/templates#tmatrix) | The T-matrix equation, T = V + VGGT. |
+| [`parquet`](/docs/reference/templates#parquet) | The parquet decomposition of the full vertex F. |
+
+### GT
+
+| Template | What it draws |
+| --- | --- |
+| [`gt`](/docs/reference/templates#gt) | The GT self-energy: a T matrix closed by G, drawn like GW, as a box or as a ladder. |
+| [`gt-bse`](/docs/reference/templates#gt-bse) | GT with the T matrix in the ladder approximation. |
+
+### Three and four particles
+
+| Template | What it draws |
+| --- | --- |
+| [`nbody`](/docs/reference/templates#nbody) | A ladder of any number of electron and hole lines, with rungs between any two. |
+| [`trion`](/docs/reference/templates#trion) | Two electrons and a hole, or two holes and an electron. |
+| [`biexciton`](/docs/reference/templates#biexciton) | Two electrons and two holes. |
+
+[Many-body diagrams](/docs/guides/many-body) covers the templates of the last five tables.

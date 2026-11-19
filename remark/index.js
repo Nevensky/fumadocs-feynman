@@ -46,7 +46,7 @@ const element = (name, attributes, children) => ({ type: 'mdxJsxFlowElement', na
 
 /**
  * What shows a chart's source: one code block, or, when the block uses templates, Template / By hand tabs.
- * Returns { nodes, error }: error when the block could not be written out by hand (the Template tab is then shown alone).
+ * Returns { nodes, error }: error when the block could not be written out by hand (its source is then one code block).
  */
 function sourceBlocks(chart, lang, styles, unit) {
   const code = (s) => ({ type: 'code', lang: 'md', meta: null, value: `\`\`\`${lang}\n${s}\n\`\`\`` });
@@ -67,15 +67,20 @@ export function remarkFeynman(options = {}) {
   const lang = options.lang ?? 'feynman';
   const name = options.component ?? 'Feynman';
   return (tree, file) => {
+    // with strict, every error is reported first and the build then fails once, so that a run shows all of them
+    let failures = 0, first = null;
     walk(tree, (node, index, parent) => {
       if (node.type !== 'code' || node.lang !== lang) return;
-      const chart = String(node.value ?? '').trim();
-      // the fence line is position.start.line; the block's first line is the one after it
+      const raw = String(node.value ?? '');
+      const chart = raw.trim();
+      // the fence line is position.start.line; the block's first line is the one after it, and lines the trim took
+      // off the top still count
+      const lead = (/^(?:[ \t]*\r?\n)*/.exec(raw)[0].match(/\n/g) || []).length;
       const report = (message, line, fail) => {
         const reason = `feynman diagram: ${message}`;
-        const place = node.position ? { line: node.position.start.line + (line ?? 1), column: 1 } : undefined;
-        if (fail) file.fail(reason, place, 'fumadocs-feynman');
+        const place = node.position ? { line: node.position.start.line + lead + (line ?? 1), column: 1 } : undefined;
         file.message(reason, place, 'fumadocs-feynman');
+        if (fail) { failures++; first ??= { reason, place }; }
         // MDX loaders (fumadocs-mdx among them) do not print vfile messages, so say it on the console too
         if (options.quiet !== true) console.warn(`[fumadocs-feynman] ${file.path ?? 'mdx'}${place ? `:${place.line}` : ''}: ${message}`);
       };
@@ -100,10 +105,11 @@ export function remarkFeynman(options = {}) {
       if (options.source || /(^|\s)source(\s|$)/.test(bare)) {
         const { nodes, error } = sourceBlocks(chart, lang, options.styles, unit);
         // a diagram with errors has been reported already; a valid one that cannot be written out is a bug to report
-        if (error && valid) report(`the By hand tab is left out: ${error.message}`);
+        if (error && valid) report(`the By hand tab is left out: ${error.message}`, undefined, options.strict);
         parent.children.splice(index + 1, 0, ...nodes);
       }
     });
+    if (failures) file.fail(failures > 1 ? `${first.reason} (and ${failures - 1} more: see the messages above)` : first.reason, first.place, 'fumadocs-feynman');
   };
 }
 

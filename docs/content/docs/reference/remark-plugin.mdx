@@ -1,0 +1,284 @@
+---
+title: Remark plugin
+description: remarkFeynman checks every feynman code block at build time and turns it into a Feynman element.
+---
+
+Add `remarkFeynman` to your MDX pipeline. It finds every code block in the `feynman` language, checks the diagram,
+and replaces the block with a `<Feynman chart="…" />` element. The [component](/docs/reference/component) then
+draws the diagram as static SVG on the server. fumadocs' `remarkMdxMermaid` works the same way for Mermaid.
+
+## Import
+
+```ts
+import { remarkFeynman } from 'fumadocs-feynman/remark';
+// remarkFeynman is also the default export: import remarkFeynman from 'fumadocs-feynman/remark';
+```
+
+```ts
+function remarkFeynman(options?: RemarkFeynmanOptions): (tree: any, file: any) => void;
+```
+
+The options type is exported as `RemarkFeynmanOptions`. The transformer is typed loosely, so that it fits the
+plugin type of any unified version. The plugin has no dependencies of its own: it uses the package's renderer and
+nothing else.
+
+## Options
+
+<TypeTable
+  type={{
+    lang: {
+      type: 'string',
+      default: "'feynman'",
+      description: 'The language of the code blocks to draw. Code blocks in other languages are left alone.',
+    },
+    component: {
+      type: 'string',
+      default: "'Feynman'",
+      description: 'The name of the MDX element that each block becomes. Register a component under this name.',
+    },
+    styles: {
+      type: 'Record<string, string>',
+      description:
+        "Site-wide line-style names, such as { D: 'photon', F: 'phonon dressed' }. The plugin uses them to check blocks and to write them out by hand. It does not pass them to the component, so give the same names to createFeynman.",
+    },
+    unit: {
+      type: 'number',
+      description:
+        "The site's px per unit, when the component has one (createFeynman({ unit })). The plugin checks blocks and writes them out by hand at this unit, because some templates size themselves by it. A fence's unit= wins when it is a positive number. Without a positive number from either, blocks are checked at 40.",
+    },
+    strict: {
+      type: 'boolean',
+      default: 'false',
+      description:
+        'Fail the build on a diagram error, instead of warning. Every error is reported first, and the build then fails once. A By hand tab that cannot be written fails it too.',
+    },
+    validate: {
+      type: 'boolean',
+      default: 'true',
+      description:
+        'Check every block at build time. With false, the plugin reports nothing, and an error shows only on the page.',
+    },
+    source: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Follow every diagram by its source, as the bare word source in a fence does.',
+    },
+    quiet: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Do not print diagram errors on the console. They are still recorded as messages on the file.',
+    },
+  }}
+/>
+
+`styles` and `unit` stay with the plugin: the component draws with its own defaults, so give both the same values.
+[Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit) sets them from one module.
+
+## Fence meta
+
+The fence line can carry these keys after the language:
+
+| Meta | What it does |
+| --- | --- |
+| `caption="…"` | A caption under the diagram. It takes the TeX subset of labels, with Latin letters upright as in text. |
+| `title="…"` | The accessible description, which becomes the SVG's `aria-label`. Without it, one is generated from the diagram. |
+| `unit=36` | Pixels per unit for this block. |
+| `id="…"` | The prefix of the SVG's ids (the hatch pattern of `hatched` vertices). Without it, a hash of the source. |
+| `source` | A bare word: the diagram is followed by its source. |
+
+A value goes in double quotes, in single quotes, or bare when it has no spaces. Other `key=value` pairs are ignored.
+
+````md
+```feynman caption="Fock exchange self-energy" source
+fock
+```
+````
+
+```feynman caption="Fock exchange self-energy" source
+fock
+```
+
+### How `unit=` is read
+
+- Only a positive number counts. `unit=0`, `unit=-2` and `unit=abc` are ignored.
+- When the fence has several, the last positive one wins: `unit=20 unit=abc` draws at 20.
+- With none, the block keeps the site's unit: the plugin's `unit` option for the check and the By hand tab, and
+  the component's default (`createFeynman({ unit })`, else 40) for the drawing.
+- A `unit 30` statement inside the block wins over all of these.
+
+### The word `source`
+
+`source` counts only as a bare word. A quoted value that contains it, such as `caption="the source term"`, does not
+turn it on. The `source: true` option turns it on for every block.
+
+## What it emits
+
+Each block becomes an MDX JSX element (`mdxJsxFlowElement`) named by the `component` option. Its `chart` attribute
+holds the block's text, trimmed. The fence's `caption`, `title`, `id` and `unit` follow as string attributes,
+`unit` only when it is a positive number. The block above becomes:
+
+```mdx
+<Feynman chart="fock" caption="Fock exchange self-energy" />
+```
+
+With `source`, the plugin puts the source after the element. A block written by hand gets one code block in the
+`md` language, which holds the block in its `feynman` fence, ready to copy. A block that uses a template gets two
+tabs, **Template** (the block as written) and **By hand** (the same diagram as plain statements, from
+[`expand()`](/docs/reference/api#expand)):
+
+```mdx
+<CodeBlockTabs defaultValue="Template">
+  <CodeBlockTabsList>
+    <CodeBlockTabsTrigger value="Template">Template</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="By hand">By hand</CodeBlockTabsTrigger>
+  </CodeBlockTabsList>
+  <CodeBlockTab value="Template">
+    {/* an md code block: the block as written, in its feynman fence */}
+  </CodeBlockTab>
+  <CodeBlockTab value="By hand">
+    {/* an md code block: expand(block, { styles, unit }), in a feynman fence */}
+  </CodeBlockTab>
+</CodeBlockTabs>
+```
+
+- These are fumadocs-ui's code-block tabs, which `defaultMdxComponents` includes. Outside fumadocs-ui, give MDX
+  components with these four names: [Source tabs](/docs/guides/source-tabs#without-fumadocs-ui) lists the props
+  they get.
+- The tabs are emitted ready-made and marked as visited, so fumadocs' `remarkCodeTab` leaves them alone. The plugin
+  can run before or after it.
+- Each pair of tabs switches on its own.
+- A block with errors gets the single code block, with no By hand tab.
+
+[Source tabs](/docs/guides/source-tabs) shows them in use.
+
+## Validation
+
+With `validate` on (the default), the plugin draws each block once at build time, with its `styles` option and
+the block's unit: the fence's `unit=`, else the `unit` option.
+
+- Every error becomes a message on the `.mdx` file, whose text starts with `feynman diagram:` and whose rule id is
+  `fumadocs-feynman`. It points at the line of the file where the mistake is: blank lines at the top of the block
+  count, and an error in a vertex or line that a template draws points at the template's statement. An error with
+  no line of its own, such as an empty block, points at the block's first line.
+- MDX loaders, fumadocs-mdx among them, do not print file messages, so the plugin also prints each error on the
+  console. `quiet: true` turns this off.
+
+  ```text
+  [fumadocs-feynman] content/docs/page.mdx:7: unknown vertex "c"
+  ```
+
+- The page still builds. In place of the diagram, the component shows an error box that lists the errors with
+  their line numbers above the numbered source.
+- With `strict: true`, the build fails instead. The plugin first reports every error of the page as above, so that
+  one run shows them all, then throws one fatal file message with the first error's text and position. When there
+  are more, the text ends in `(and N more: see the messages above)`.
+- A By hand tab that cannot be written, for a block that draws, is a bug: the plugin warns
+  `the By hand tab is left out: …` and shows the block's source alone
+  ([Source tabs](/docs/guides/source-tabs#blocks-with-errors)). With `strict: true`, this fails the build too.
+- With `validate: false`, the plugin does not check blocks. Nothing is reported, and errors show only on the page.
+
+The plugin checks code blocks only. A `<Feynman>` element written into a page by hand is drawn without a check.
+[Errors](/docs/guides/errors) shows what an error looks like on the page.
+
+## Set up
+
+<Tabs items={['fumadocs-mdx 15', 'fumadocs-mdx 11–14', '@mdx-js/mdx', 'unified']}>
+<Tab value="fumadocs-mdx 15">
+
+Add the plugin in `lib/source.ts`, where the `fumadocs-mdx/macro` API defines the collection:
+
+```ts title="lib/source.ts"
+import { defineDocs } from 'fumadocs-mdx/macro';
+import { applyMdxPreset } from 'fumadocs-mdx/config';
+import { remarkFeynman } from 'fumadocs-feynman/remark';
+
+const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    // a collection-level mdxOptions replaces the defaults, so wrap it in applyMdxPreset
+    mdxOptions: applyMdxPreset({
+      remarkPlugins: (defaults) => [[remarkFeynman, { strict: true }], ...defaults],
+    }),
+  },
+});
+
+// then loader({ source: docs.toFumadocsSource(), ... }) as usual
+```
+
+The function form puts the plugin before fumadocs' own remark plugins. An array, `remarkPlugins: [remarkFeynman]`,
+works too.
+
+</Tab>
+<Tab value="fumadocs-mdx 11–14">
+
+Add the plugin to the global MDX options in `source.config.ts`:
+
+```ts title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import { remarkFeynman } from 'fumadocs-feynman/remark';
+
+export const docs = defineDocs({ dir: 'content/docs' });
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [[remarkFeynman, { strict: true }]],
+  },
+});
+```
+
+</Tab>
+<Tab value="@mdx-js/mdx">
+
+Pass the plugin to `compile` or `evaluate`, and give the component to the content:
+
+```js
+import { readFile } from 'node:fs/promises';
+import { evaluate } from '@mdx-js/mdx';
+import * as runtime from 'react/jsx-runtime';
+import { remarkFeynman } from 'fumadocs-feynman/remark';
+import { Feynman } from 'fumadocs-feynman/react';
+
+const mdx = await readFile('page.mdx', 'utf8');
+const { default: Content } = await evaluate(mdx, {
+  ...runtime,
+  remarkPlugins: [[remarkFeynman, { strict: true }]],
+});
+
+// render it with <Content components={{ Feynman }} />
+```
+
+The plugin emits MDX JSX, so it needs an MDX pipeline. In a plain Markdown pipeline, call
+[`render()`](/docs/reference/api#render) yourself and insert the HTML it returns.
+
+</Tab>
+<Tab value="unified">
+
+Use the plugin with `remark-mdx`, which writes the elements it emits back out as MDX. A pipeline like this one
+checks every diagram of a page without building the site, in CI for example:
+
+```js
+import { readFile } from 'node:fs/promises';
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkMdx from 'remark-mdx';
+import remarkStringify from 'remark-stringify';
+import { remarkFeynman } from 'fumadocs-feynman/remark';
+
+const file = await unified()
+  .use(remarkParse)
+  .use(remarkMdx)
+  .use(remarkFeynman, { quiet: true })
+  .use(remarkStringify)
+  .process(await readFile('page.mdx', 'utf8'));
+
+file.messages.map(String); // for example ['9:1: feynman diagram: unknown vertex "c"']
+String(file);              // the page, with <Feynman chart="…" /> in place of each block
+```
+
+</Tab>
+</Tabs>
+
+Then register the component under the name the plugin emits, as
+[Feynman component](/docs/reference/component#register-it) shows.
+
+[Installation](/docs/installation) walks through the whole setup.

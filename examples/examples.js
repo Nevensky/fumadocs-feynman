@@ -1,8 +1,8 @@
-// Example blocks, used by the tests, the gallery and the fumadocs demo page.
+// Example blocks, used by the tests, the gallery and the Examples pages of the docs (docs/scripts/gen-pages.mjs).
 export const EXAMPLES = [
   // ---------------- vocabulary ----------------
   { group: 'Vocabulary', id: 'styles', title: 'Line styles',
-    note: 'Built-in styles. `dressed` turns each into its "2" form: double for fermions and the Coulomb line, heavy for the others.',
+    note: 'Built-in styles. `dressed` turns a style into its dressed form: double for fermion, scalar and plain lines, the screened line for coulomb, and heavy for phonon, photon, field, gluon and boson. Screened, ghost and impurity lines have no dressed form.',
     source: `(0,0) -> (2.2,0) fermion "fermion"
 (3.2,0) -> (5.4,0) fermion2 "fermion2"
 (0,-1) -- (2.2,-1) phonon "phonon"
@@ -50,7 +50,7 @@ a -- b phonon dressed bulge=1.2 above "F"` },
 
   // ---------------- self-energies ----------------
   { group: 'Self-energies', id: 'fm-hand', title: 'Fan–Migdal, written by hand',
-    note: 'The EPP-primer look: the electron enters on the right, screened vertices are grey disks. below and above name sides of the page, whatever order the ends are written in; bulge=1.2 is the height of the arc in units.',
+    note: 'The electron enters on the right, and screened vertices are grey disks. below and above name sides of the page, whatever order the ends are written in; bulge=1.2 is the height of the arc in units.',
     source: `a at (0, 0) disk; b at (2.8, 0) disk
 leg a left; leg b right
 b -> a fermion dressed "G" below
@@ -146,7 +146,7 @@ caption "F"` },
 
   // ---------------- Dyson equations ----------------
   { group: 'Dyson equations', id: 'dyson-g', title: 'Electron', source: 'dyson' },
-  { group: 'Dyson equations', id: 'dyson-f', title: 'Phonon (EPP notation)', source: 'dyson style=phonon full=F bare="F^0" self="\\Pi^{ph}"' },
+  { group: 'Dyson equations', id: 'dyson-f', title: 'Phonon', source: 'dyson style=phonon full=F bare="F^0" self="\\Pi^{ph}"' },
   { group: 'Dyson equations', id: 'dyson-d', title: 'Photon: polaritons', source: 'dyson style=photon full=D bare="D^0" self="\\Pi" color=electron' },
   { group: 'Dyson equations', id: 'rpa-series', title: 'Screening: W as an RPA series',
     source: `propagator style=coulomb dressed label=W

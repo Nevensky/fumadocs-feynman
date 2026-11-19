@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import type { RenderOptions } from './index';
+import type { RenderOptions } from './index.js';
 
 export interface FeynmanProps extends Omit<RenderOptions, 'unit'> {
   /** The diagram source (what a ```feynman block contains). */

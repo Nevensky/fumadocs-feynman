@@ -1,0 +1,518 @@
+---
+title: Writing diagrams
+description: A tour of the feynman language, from vertices and lines to labels and equations.
+---
+
+A diagram is a `feynman` code block in an MDX page. Each line of the block is a statement: place a vertex,
+draw a line between two vertices, add an external leg. This block draws the Fan–Migdal self-energy:
+
+````md
+```feynman
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+````
+
+On the page it becomes:
+
+```feynman
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+
+This page goes through the statements one at a time. Every diagram below is followed by its source; where
+one uses a template, the **By hand** tab shows the same diagram written out statement by statement
+([Source tabs](/docs/guides/source-tabs)). The [language reference](/docs/reference/language) lists every
+statement and option in tables.
+
+## Statements and comments
+
+Write one statement per line, or several on one line separated by `;`. A `%` or `//` starts a comment that
+runs to the end of the line. Inside a quoted label, `;`, `%` and `//` are text. Spaces at the start of a line
+are ignored, so you can indent freely.
+
+```feynman source
+% Fock exchange, by hand
+a at (0, 0); b at (2.4, 0)    // the two vertices
+leg a left; leg b right       // the external electron
+a -> b fermion "G^0" below
+a -- b coulomb arc above "v"  % the Coulomb line, a half circle
+```
+
+Most statements draw something: a vertex (`a at (0, 0)`), a line (`a -> b fermion`), a leg (`leg a left`),
+text, or a whole diagram from a [template](/docs/guides/templates) (`fock`). Three set up the whole block,
+wherever they stand: `unit`, `grid` and `style`.
+
+## Coordinates and units
+
+Place a vertex with `at` and a position `(x, y)`. x runs to the right and y up, in units of 40 px. The
+brackets are optional: `a at 2.4,0` is the same vertex as `a at (2.4, 0)`.
+
+Put the main line of a diagram on y = 0. In an equation, the operators (`=`, `+`) are set at that height, so
+diagrams whose main lines lie on y = 0 line up with them and with each other.
+
+A line can also end at a bare position in brackets: `(-1.5, 0) -> v` runs from the point (−1.5, 0) to the
+vertex `v`, and nothing is drawn at the point ([Points without names](#points-without-names)).
+
+While you place things, add a line that says `grid`. It draws the unit grid under the diagram, marks y = 0,
+and writes the name of each vertex beside it. Delete the line when the diagram is done.
+
+```feynman source
+grid
+v at (0, 0)
+(-2, 0) -> v fermion "n\mathbf{k}" above
+v -> (2, 0) fermion "m,\mathbf{k}+\mathbf{q}" above
+(0, -1.3) -- v phonon "\mathbf{q}\nu"
+```
+
+`unit 30` sets the size of a unit to 30 px for the block it stands in. Only the geometry scales: strokes,
+arrowheads and labels keep their size, so a smaller unit gives a tighter diagram with the same type. Here is
+the Fan–Migdal block from the top of the page at 30 px:
+
+```feynman source
+unit 30
+a at (0, 0) disk; b at (2.8, 0) disk
+leg a left; leg b right
+b -> a fermion dressed "G" below
+a -- b phonon dressed bulge=1.2 above "F"
+```
+
+The fence can set the unit too, with `unit=30` in its meta
+([Remark plugin](/docs/reference/remark-plugin#fence-meta)), and so can the whole site
+([Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit)); a `unit` statement in the block
+wins over both.
+
+## Vertices
+
+A vertex is a name, `at` and a position, then optionally a shape, options and a label in double quotes:
+`NAME at x,y [shape] [options] ["label"]`. A name starts with a letter or `_` and may hold letters (Greek
+ones too), digits, `_`, primes (`b'`) and a `-` between two parts (`a-1`). It cannot hold a `.`, which marks an
+[anchor](#anchors).
+
+Without a shape, a vertex is a small dot. The shapes are:
+
+- small dots for couplings: `dot`, `charge` (in ink, for ρ), `current` (teal, for j), `eph` (amber, the
+  electron–phonon g), `dipole` (rose, d·E) and `spin` (violet, σ·B);
+- marks: `disk` (a screened vertex), `hatched`, `open`, `cross`, `otimes` and `square`;
+- shapes that hold their label: `blob` (a self-energy), `bubble` (blue), `box` (a four-point vertex),
+  `triangle` and `lens` (a response function);
+- `none`, which draws nothing.
+
+Lines stop at the edge of the larger shapes by themselves. [Vocabulary](/docs/examples/vocabulary#vertex-shapes)
+shows every shape.
+
+```feynman source
+g at (0, 0) eph "g"
+j at (1.2, 0) current "j"
+r at (2.4, 0) charge "\rho"
+x at (3.6, 0) otimes "V"
+S at (0.2, -1.6) blob "\Sigma"
+P at (1.6, -1.6) bubble "P"
+K at (3, -1.6) box "K"
+X at (4.4, -1.6) lens "\chi"
+```
+
+A label goes below a small vertex and inside a blob, bubble, box, triangle or lens. `pos=` puts it
+elsewhere: `above`, `below`, `left`, `right`, `ne`, `nw`, `se`, `sw`, or an angle in degrees, anticlockwise
+from the right (`pos=30`). On the shapes that hold their label, any `pos=` but `center` puts it outside.
+
+```feynman source
+x at (0, 1.2) otimes "V_{imp}" pos=above
+v at (0, 0)
+(-1.6, 0) -> v fermion "\mathbf{k}" below
+v -> (1.6, 0) fermion "\mathbf{k}'" below
+x -- v coulomb "\mathbf{q}"
+```
+
+The other options:
+
+- `color=` sets the colour of the shape ([Notation](/docs/guides/notation#colours) lists the colour names).
+- `r=` sets the radius in units of any shape but a box or lens.
+- `w=` and `h=` set the width and height in units of a box or lens.
+- `dir=` turns a triangle (it points right by default) or lays a lens down (`dir=right`).
+- `size=` sets the size in px of a label outside the shape.
+- `faint` fades the vertex.
+
+To label or restyle a vertex that already exists, a template's too, write its name followed by a label, a
+shape or options. It stays where it is. The **By hand** tab shows the names of a template's vertices.
+
+```feynman source
+fock
+a current "\mathbf{r}" pos=sw
+b current "\mathbf{r}'" pos=se
+```
+
+Writing `a at x,y` again places a new vertex `a` instead, shape and label included.
+
+## Lines
+
+A line joins two ends with an operator: `->` draws an arrow from the first end to the second, `<-` from the
+second to the first, and `--` none. After the ends come, in any order, a line style, options and flags, and
+a label in double quotes.
+
+```feynman source
+(0, 0) -> (2.4, 0) fermion "e"
+(0, -0.9) <- (2.4, -0.9) fermion "h"
+(0, -1.8) -- (2.4, -1.8) phonon "F"
+```
+
+Without a style, `->` and `<-` draw a `fermion` and `--` a `plain` line. The styles are `fermion`, `phonon`
+(zigzag), `photon` (wave), `coulomb` (dashed), `screened` (double dashed), `field` (a wave on dashes),
+`gluon`, `scalar`, `ghost`, `plain`, `boson` and `impurity` (dashed, with a cross).
+[Line styles](/docs/examples/vocabulary#line-styles) shows them all.
+
+<Callout type="info">
+Arrows mark fermions: an electron, or a hole running back. A `phonon`, `photon`, `field`, `gluon`, `coulomb`,
+`screened` or `impurity` line written with `->` or `<-` is an error. Draw it with `--`, and put the momentum it
+carries in its label or in a `mom=` arrow beside it ([Momentum](/docs/guides/momentum)).
+</Callout>
+
+### Labels on lines
+
+A label sits halfway along the line, on the left of the direction the line is written in: above a line
+written left to right, below one written right to left. `above` and `below` name a side of the page instead,
+whatever order the ends are written in:
+
+```feynman source
+(0, 0) -> (2, 0) fermion "G"        % written left to right: above
+(5, 0) -> (3, 0) fermion "G"        % written right to left: below
+(8, 0) -> (6, 0) fermion "G" above  % a side of the page, in either order
+```
+
+`above` and `below` work on lines within 45° of horizontal. On a steeper line, write `side=left` or
+`side=right`: it counts along the written direction, so on a line written upwards, `right` is the page's
+right.
+
+```feynman source
+v at (0, 0)
+(-1.4, 0) -> v fermion "\mathbf{k}" below
+v -> (1.4, 0) fermion "\mathbf{k}+\mathbf{q}" below
+v -- (0, 1.3) photon "\mathbf{q}" side=right
+```
+
+`pos=0.3` moves a label along the line (0 at the first end, 1 at the second), and `dist=12` sets its distance
+from the line in px.
+
+### Curves
+
+`bulge=1.2 above` bends a line into an arc that rises 1.2 units above the straight line between its ends;
+`below` bends it the other way. The height is in the same units as the positions, so the arc keeps its height
+when you move a vertex. `arc above` is a half circle, and `bend above` a flatter arc, 0.35 times as high as
+the ends are apart.
+
+```feynman source
+a at (0, 0); b at (2.8, 0)
+a -> b fermion
+a -- b phonon bulge=0.5 above   % 0.5 units high
+a -- b photon bend above        % 0.35 × 2.8 ≈ 1 unit high
+a -- b coulomb arc above        % a half circle, 1.4 units high
+```
+
+A bulge may be at most half the distance between the ends; for more than a half circle, use `bend=`.
+`bend=0.42` gives the arc's height as a fraction of the distance between the ends (0.5 is a half circle).
+Without `above` or `below`, its sign counts from the written direction: a positive `bend` bulges to the left
+of the line from its first end to its second.
+
+The label of an arc goes outside it; `side=in` puts it inside. The arrow never changes the shape; the order of
+the ends does. `a -> b` and `a <- b` draw the same arc with the arrow turned round, while `b -> a` bends to the
+other side unless `above` or `below` gives the side.
+
+### How a line looks
+
+`dressed` draws the full propagator: `fermion`, `scalar` and `plain` become double lines, `coulomb` becomes
+`screened`, and `phonon`, `photon`, `field`, `gluon` and `boson` are drawn heavy; `screened`, `ghost` and
+`impurity` have no dressed form. `bare` turns a dressed style back.
+
+```feynman source
+(0, 0) -> (2, 0) fermion "G^0"
+(3, 0) -> (5, 0) fermion dressed "G"
+(0, -1) -- (2, -1) phonon "F^0"
+(3, -1) -- (5, -1) phonon dressed "F"
+(0, -2) -- (2, -2) coulomb "v"
+(3, -2) -- (5, -2) coulomb dressed "W"
+```
+
+`heavy` and `thin` set the stroke, `double` draws two strands, `color=` sets the colour of the line, its
+arrow and its label, and `faint` fades the line. `width=`, `amp=`, `wl=` and `dash=` set the stroke width,
+the amplitude and wavelength of a wave or zigzag, and the dash pattern of a dashed line, all in px.
+
+```feynman source
+(0, 0) -> (2, 0) fermion color=violet "G_\uparrow"
+(3, 0) -> (5, 0) fermion faint "G_\downarrow"
+(0, -1) -- (2, -1) photon amp=5 wl=14 "D"
+(3, -1) -- (5, -1) coulomb dash="2 3" "v"
+```
+
+### Arrowheads and marks
+
+An arrowhead sits halfway between the two vertices. `arrowpos=0.25` moves it along the line, as a fraction
+from the first end; `arrow=end` puts it at the end it points to, `arrow=start` just inside the end it leaves,
+and `arrow=none` leaves it out. `marker=cross` draws a cross in the middle of the line, as an `impurity` line
+has by default; `marker=none` takes it away.
+
+```feynman source
+(0, 0) -> (2.4, 0) fermion "G" arrowpos=0.25
+(0, -0.9) -> (2.4, -0.9) fermion "G" arrow=end
+(0, -1.8) -> (2.4, -1.8) fermion "G" arrow=start
+(0, -2.7) -- (2.4, -2.7) impurity "u"
+```
+
+### Momentum
+
+`mom="\mathbf{q}"` draws the momentum a line carries as a small grey arrow beside it, labelled with the
+momentum. The arrow runs along the written direction, from the first end to the second, and goes on the side
+opposite the line's label. `momdir=back` turns it round, `momside=left` or `momside=right` puts it on that
+side of the written direction, and `mompos=0.7` moves it along the line.
+
+```feynman source
+v at (0, 0)
+(-1.6, 0) -> v fermion "\mathbf{k}" below
+v -> (1.6, 0) fermion "\mathbf{k}+\mathbf{q}" below
+(0, 1.4) -- v photon "D" mom="\mathbf{q}"
+```
+
+[Momentum](/docs/guides/momentum) covers it in full, with the templates that take `mom=`.
+
+## Chains
+
+Write several ends in a row to draw a line between each pair: `a -> b -> c fermion` is the two lines
+`a -> b` and `b -> c`. The style, options and flags apply to every piece, and each operator sets the arrow of
+its own piece. A chain takes no label: write a labelled line on its own.
+
+```feynman source
+v0 at (0, 0); v1 at (1.15, 0); v2 at (2.3, 0); v3 at (3.45, 0)
+(-0.8, 0) -> v0 -> v1 -> v2 -> v3 -> (4.25, 0) fermion
+v0 -- v3 phonon bulge=1.4 above
+v1 -- v2 phonon arc above
+```
+
+## Lines that cross
+
+Where two wavy, zigzag or coiled lines cross, the one written later passes over the other, with a short gap in
+the line underneath. Mark any other line `over` to make it pass over every line written before it that it
+crosses, and write it after them. A dashed line underneath keeps its own gaps.
+
+```feynman source
+a at (0, 0); b at (0, -1.6)
+(-1.2, 0) -> a -> (1.2, 0) fermion
+(1.2, -0.8) -> (-1.2, -0.8) fermion
+(-1.2, -1.6) -> b -> (1.2, -1.6) fermion
+a -- b screened over "W" pos=0.25
+```
+
+## Points without names
+
+A line can end at a position instead of a vertex: `(x, y)`, as in `(-1.5, 0) -> v`. Nothing is drawn there.
+Written `+(dx, dy)`, the point is measured from the other end of the same line, so it moves with that end:
+
+```feynman source
+a at (0, 0); b at (2, 0)
++(-1, 0.9) -> a fermion "e^-" above
+a -> +(-1, -0.9) fermion "e^+" below
+a -- b photon "\gamma" above
+b -> +(1, 0.9) fermion "\mu^-" above
++(1, -0.9) -> b fermion "\mu^+" below
+```
+
+Move `b` and its two lines go with it. One end of a line must be a vertex or a fixed point, so in a chain
+such as `a -> +(1, 0) -> +(1, 0)` the second piece is an error.
+
+## Anchors
+
+`K.nw` is a point on the edge of vertex `K` rather than its centre, and a line drawn to an anchor ends
+exactly there. On a box, the corner names `nw`, `ne`, `sw` and `se` are ports: points on a face, 0.2 units in
+from that corner. A line that arrives more horizontally enters the side face, one that arrives more
+vertically the top or bottom face. `n`, `s`, `e` and `w` are the middles of the faces.
+
+```feynman source
+K at (0, 0) box "K"
+(-1.3, 0.45) -> K.nw fermion
+K.ne -> (1.3, 0.45) fermion
+(1.3, -0.45) -> K.se fermion
+K.sw -> (-1.3, -0.45) fermion
+```
+
+On a blob, a disk or any other round vertex, `n`, `ne`, `e` and the rest are compass points on its rim, and a
+number is an angle in degrees, anticlockwise from the right: `L.150`. Here the angles bring four lines in
+level:
+
+```feynman source
+L at (0, 0) blob "L" r=0.6
+(-1.6, 0.3) -> L.150 fermion
+L.210 -> (-1.6, -0.3) fermion
+L.30 -> (1.6, 0.3) fermion
+(1.6, -0.3) -> L.330 fermion
+```
+
+## Legs
+
+`leg a left` draws an external line from vertex `a`. After the vertex come a direction, a length in units
+(0.6 by default), a style (`fermion` by default), `in` or `out` for an arrow into or out of the vertex,
+options and a label. Without `in` or `out`, a leg has no arrow. The direction is a word (`left`, `right`,
+`up`, `down`, `ne`, `nw`, `se`, `sw`) or an angle in degrees, anticlockwise from the right.
+
+```feynman source
+a at (0, 0); b at (1.6, 0)
+leg a left 1 in "n\mathbf{k}" below
+a -> b fermion "n'\mathbf{k}" below
+leg b right 1 out "m,\mathbf{k}+\mathbf{q}" below
+leg a 120 1.2 photon "\hbar\omega"
+leg b 60 1.2 phonon "\mathbf{q}\nu"
+```
+
+<Callout type="warn">
+The first number after the vertex is the direction: `leg a 1.2` is a leg at 1.2°. Write the direction
+first, then the length: `leg a left 1.2`.
+</Callout>
+
+A leg is written from its left end to its right end, or upwards when it is vertical, whatever `in` or `out`
+says. So its label goes above it (on the left of a vertical leg), and `side=`, `mom=` and `momdir=` count
+along that direction. `above` and `below` come after the direction.
+
+## Self-loops
+
+A line from a vertex to itself is a loop. `above` or `below` says where it goes, or `dir=` gives a direction
+word or an angle (up by default). `size=` is its diameter in units (1 by default). The flag `loop` may be
+written but is not needed when both ends are the same vertex.
+
+```feynman source
+a at (0, 0); b at (0, 1)
+leg a left 1 in; leg a right 1 out
+a -- b coulomb "v" side=right
+b -> b fermion loop size=1.2 "G"
+```
+
+A loop runs anticlockwise; `cw` turns it clockwise, which reverses its arrow. Its label goes outside it, and
+`side=in` puts the label inside. On a vertex that lines stop at, such as a disk or a hatched vertex, the loop
+starts inside the shape so that it meets the edge evenly:
+
+```feynman source
+v at (0, 0) hatched "g^{DW}"
+leg v left 0.7; leg v right 0.7
+v -- v phonon dressed loop above size=1.2 "F"
+```
+
+## Text, captions and titles
+
+`text "..." at x,y` writes a label anywhere in the diagram, centred on y. `size=` sets its size in px (14
+by default), `color=` its colour, `anchor=start`, `middle` or `end` which end of the text sits at x (`middle`
+by default), and `upright` sets every letter upright.
+
+`caption "..."` writes a caption under the diagram, or under its term in an equation. `title "..."` sets the
+accessible description that screen readers announce, with its TeX read out as text (`G^0` as `G sup 0`).
+Without a title, the diagram describes itself from its lines and their labels or, when it has no lines, from its
+vertices ([Accessibility](/docs/guides/how-it-works#accessibility)).
+
+```feynman source
+a at (0, 0) charge; b at (2.4, 0) charge
+(-1, 0) -- a coulomb "v"
+b -- (3.4, 0) coulomb "v"
+a -> b fermion bulge=0.7 above "G"
+b -> a fermion bulge=0.7 below "G"
+text "P^0" at 1.2, 0 color=muted
+caption "the polarization P^0 between two Coulomb lines"
+title "Polarization bubble between two Coulomb lines"
+```
+
+A caption is set as text: upright, with every space kept, and with the [label](#labels) commands. The fence
+meta can give a caption and a title too ([Remark plugin](/docs/reference/remark-plugin#fence-meta)).
+
+## Equations
+
+A line that starts with an operator begins the next term of an equation: `=`, `+`, `-`, `×`, `≈`, `≡`, `→`
+and `:=`, among others ([the full list](/docs/reference/language#equations)). The rest of that line, and the
+lines after it, are the statements of the new term. Each term is a diagram of its own, with its own vertex
+names, and its y = 0 sits on the line where the operators are set. `...` as a term of its own draws ⋯.
+
+```feynman source
+(0, 0) -- (1.6, 0) screened "W"
+= (0, 0) -- (1.6, 0) coulomb "v"
++ P at (1.6, 0) bubble "P"
+  (0, 0) -- P coulomb "v"
+  P -- (3.2, 0) coulomb "v"
++ ...
+```
+
+An operator is printed as written, except `-`, which is set as a minus sign (−). `op "..."` sets any text as
+the operator, printed exactly as written, not as TeX:
+
+```feynman source
+S at (0, 0) blob "\Sigma"
+leg S left 0.6; leg S right 0.6
+op "= i" a at (0, 0); b at (2.4, 0)
+  leg a left 0.6; leg b right 0.6
+  a -> b fermion dressed "G" below
+  a -- b screened bulge=1 above "W"
+```
+
+A line that starts with `|` sets the next diagram beside the last, with no operator. A line that starts with
+`\\`, as in TeX, starts a new row; an operator may follow it on the same line.
+
+```feynman source
+(0, 0) -> (1.4, 0) fermion "G"
+caption "electron"
+| (0, 0) -- (1.4, 0) phonon "F"
+caption "phonon"
+\\ (0, 0) -- (1.4, 0) photon "D"
+caption "photon"
+| (0, 0) -- (1.4, 0) screened "W"
+caption "screened Coulomb"
+```
+
+Each operator stays with the term after it when a long equation wraps. Templates are terms like any other,
+and a template that draws a whole equation, such as `dyson`, stands alone in its term
+([Using templates](/docs/guides/templates)).
+
+## Labels
+
+Labels are written in double quotes, in a small subset of TeX:
+
+- `_` and `^` set a subscript and a superscript: one character, or a group in braces, as in `G^0`,
+  `\Sigma^{ep}` and `G^0_{n\mathbf{k}}`.
+- Greek letters by name: `\alpha` to `\omega`, the capitals TeX has (`\Gamma` to `\Omega`), and
+  `\varepsilon`, `\varphi`, `\vartheta`.
+- `\mathbf{k}` for a bold vector, `\mathrm{}` or `\text{}` for upright text, `\mathit{}` for italic, and
+  `\boldsymbol{}` for bold Greek.
+- Accents: `\bar{v}`, `\overline{ph}` (one bar over the whole group), `\tilde`, `\hat`, `\vec`, `\dot`.
+- Symbols such as `\dagger`, `\uparrow`, `\downarrow`, `\parallel`, `\hbar`, `\infty`, `\pm`, `\times`,
+  `\cdot`, `\to`, `\langle` and `\rangle`.
+- Spaces: `\,` is a thin space and `\;` a medium one. A space you type is kept.
+
+Latin letters are italic, capital Greek letters upright and lower-case Greek letters italic; digits and symbols
+are upright. Latin letters in sub- and superscripts are upright, because they are mostly names (cn, ep, irr);
+`\mathit{}` makes one italic. Lower-case Greek letters stay italic there too.
+
+As in TeX, `-` becomes a minus sign and `'` a prime, and a space after a command only ends it: `\delta G` is
+δG. `+`, `-` and `=` between two operands get a little space on each side, so `\mathbf{k}+\mathbf{q}` reads
+**k** + **q**. A subscript right after a superscript or a prime is set under it: `\rho^*_{n\mathbf{k}}`,
+`G'_z`. A command outside the subset is printed as written.
+
+```feynman source
+(0, 0) -> (2.6, 0) fermion "G^0_{n\mathbf{k}}(\omega)"
+(3.6, 0) -> (6.2, 0) fermion "m,\,\mathbf{k}+\mathbf{q}"
+(0, -1.1) -- (2.6, -1.1) phonon "F_{\mathbf{q}\nu}"
+(3.6, -1.1) -- (6.2, -1.1) photon "D_{\mu\nu}"
+(0, -2.2) -- (2.6, -2.2) coulomb "\bar{v}"
+(3.6, -2.2) -- (6.2, -2.2) screened "W^{e,\mathrm{cn}}"
+r at (1.3, -3.2) charge "\rho^*_{n\mathbf{k}}" pos=right
+s at (4.9, -3.2) "\mathbf{r}'_1" pos=right
+```
+
+The [reference](/docs/reference/language#labels) lists every command.
+
+## Your own line styles
+
+`style D = photon` gives a line style a name of your own, here `D`, which the block can then use wherever a
+style goes: `a -- b D "D"`. A style says how a line looks (`dressed`, `heavy`, `color=` and the like), never
+where it goes or what it says. [Notation](/docs/guides/notation) shows the looks a style can hold, and
+[Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit) how to name styles for every page.
+
+<Cards>
+  <Card title="Using templates" href="/docs/guides/templates">Whole diagrams from one line, and how to add to them.</Card>
+  <Card title="Language reference" href="/docs/reference/language">Every statement, option and shape, in tables.</Card>
+  <Card title="Written by hand" href="/docs/examples/written-by-hand">Diagrams that no template covers.</Card>
+</Cards>

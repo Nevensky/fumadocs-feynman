@@ -1,0 +1,777 @@
+---
+title: API
+description: The functions, classes and tables exported from fumadocs-feynman, for drawing diagrams outside MDX.
+---
+
+Import from `fumadocs-feynman` to draw diagrams in your own code: a build script, a test, a Markdown pipeline
+without MDX. The main entry has no dependencies and needs no DOM, so it runs in Node and in the browser alike. The
+[remark plugin](/docs/reference/remark-plugin) and the [component](/docs/reference/component) are built on it.
+
+```js
+import { render, renderSVG, renderModel, expand, Term } from 'fumadocs-feynman';
+```
+
+| Export | What it is |
+| --- | --- |
+| [`render`](#render) | Draws a block: HTML, a standalone SVG and the errors. |
+| [`renderSVG`](#rendersvg) | Draws a block as one SVG string, and throws on errors. |
+| [`renderModel`](#rendermodel) | Draws a `Term` or an `Equation` built in code. |
+| [`expand`](#expand) | Writes a block out by hand, without templates. |
+| [`templatesIn`](#templatesin) | The names of the templates a block uses. |
+| [`parse`](#parse) | Reads a block into terms, without drawing it. |
+| [`Term`](#term), [`Equation`](#equation) | Diagrams and equations built in code. |
+| [`TEMPLATES`](#templates) | Every template, with its options and their defaults. |
+| [`LINE_STYLES`](#line_styles), [`SHAPES`](#shapes) | The built-in line styles and vertex shapes. |
+| [`themeCSS`](#themecss), [`TOKENS`](#tokens), [`cssColor`](#csscolor) | The theme: its stylesheet, its colours, and colour values. |
+| [`FONT_INLINE`](#font_inline) | The fallback font stack written into each SVG. |
+
+The package ships its type declarations, which cover every export above. They also export the types
+`RenderOptions`, `RenderResult`, `DiagramError`, `Endpoint`, `NodeOptions`, `EdgeOptions`, `TemplateSpec`,
+`BuiltinLineStyle` and `BuiltinShape`.
+
+## render
+
+```ts
+function render(source: string, options?: RenderOptions): RenderResult;
+```
+
+Draws a block: the text that a `feynman` code block contains. It does not throw on a mistake in the diagram; it
+returns the errors.
+
+```js
+import { render } from 'fumadocs-feynman';
+
+const { html, svg, errors } = render('a at (0, 0); b at (2, 0)\na -> b fermion "G"', {
+  caption: 'A propagator',
+});
+
+render('a at (0, 0)\na -> c fermion').errors;
+// [{ message: 'unknown vertex "c"', line: 2 }]
+```
+
+### RenderOptions
+
+<TypeTable
+  type={{
+    unit: {
+      type: 'number',
+      default: '40',
+      description:
+        'Pixels per diagram unit. Only the geometry scales: strokes and labels keep their size. Anything but a positive number is ignored. A unit statement in the block wins.',
+    },
+    styles: {
+      type: 'Record<string, string>',
+      description:
+        "Line-style names of your own, such as { D: 'photon', F: 'phonon dressed' }. A style statement in the block wins over a name given here.",
+    },
+    caption: {
+      type: 'string',
+      description:
+        'A caption under the diagram, in the TeX subset of labels, with Latin letters upright as in text. On a single diagram it wins over a caption statement; under an equation it captions the whole.',
+    },
+    title: {
+      type: 'string',
+      default: 'generated from the diagram',
+      description: 'The accessible description: the aria-label of the SVG, or of the figure that holds an equation.',
+    },
+    id: {
+      type: 'string',
+      default: 'feyn- and a hash of the source',
+      description: 'The prefix of the SVG ids (the hatch pattern of hatched vertices).',
+    },
+    scriptItalic: {
+      type: 'boolean',
+      default: 'false',
+      description:
+        'Italic Latin letters in sub- and superscripts. By default they are upright, as they are mostly names such as cn, ep and irr.',
+    },
+    grid: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Draw the drafting grid of whole units, with the name of every vertex, as the grid statement does.',
+    },
+  }}
+/>
+
+### RenderResult
+
+<TypeTable
+  type={{
+    html: {
+      type: 'string',
+      required: true,
+      description:
+        'A figure (class feyn) with the SVG and its caption. An equation is a figure with role="group" whose terms wrap on a narrow column. With errors, an error box (class feyn-error, role="alert") that lists them with line numbers above the numbered source.',
+    },
+    svg: {
+      type: 'string',
+      required: true,
+      description:
+        "One standalone SVG, for export: an equation's terms and operators in one image. With errors, an empty string.",
+    },
+    errors: {
+      type: 'DiagramError[]',
+      required: true,
+      description:
+        "Each error as { message, line }, sorted by line. line counts from 1 at the first line of the block. An error in a vertex or line that a template draws carries the line of the template's statement; an error of the whole block, such as an empty one, has no line. Empty when the diagram is drawn.",
+    },
+  }}
+/>
+
+Every colour in a diagram is a CSS variable with its light value as a fallback, such as
+`var(--feyn-electron,#2350c8)`, so a diagram is legible with no stylesheet. Load
+`fumadocs-feynman/style.css` or [`themeCSS()`](#themecss) for dark mode.
+
+## renderSVG
+
+```ts
+function renderSVG(source: string, options?: RenderOptions): string;
+```
+
+Returns the `svg` of [`render()`](#render). On errors it throws an `Error` whose message lists them, one per line,
+as `line 2: unknown vertex "c"`.
+
+```js
+import { writeFileSync } from 'node:fs';
+import { renderSVG } from 'fumadocs-feynman';
+
+writeFileSync('propagator.svg', renderSVG('a at (0, 0); b at (2, 0)\na -> b fermion "G"'));
+```
+
+## renderModel
+
+```ts
+function renderModel(model: Term | Equation, options?: RenderOptions): RenderResult;
+```
+
+Draws a diagram built in code with [`Term`](#term) or [`Equation`](#equation), and returns the same
+`{ html, svg, errors }` as `render()`. Its errors carry no line numbers.
+
+- `unit`, `styles`, `caption`, `title`, `scriptItalic` and `grid` work as in `render()`. `title` falls back to the
+  model's own.
+- `id` is `feyn-model` unless you give one. Give each diagram on a page its own when they have `hatched` vertices.
+
+## expand
+
+```ts
+function expand(source: string, options?: { styles?: Record<string, string>; unit?: number }): string;
+```
+
+Writes a block out by hand: each template becomes the vertices, lines and texts it stands for, as plain statements.
+`render(expand(source))` draws the same picture as `render(source)`, with coordinates rounded to four decimals.
+The **By hand** tab under a `feynman source` block is `expand()` of the block.
+
+```js
+import { expand } from 'fumadocs-feynman';
+
+expand('fock');
+// a at (0, 0)
+// b at (2.8, 0)
+// (-0.575, 0) -- a fermion
+// b -- (3.375, 0) fermion
+// a -> b fermion side=right "G^0"
+// a -- b coulomb bend=0.45 "v"
+```
+
+The same expansion, as the **By hand** tab of a block:
+
+```feynman source
+fock
+```
+
+- The block's own `unit`, `grid` and `style` statements are kept, and so are its captions and any `title` it
+  writes. The title a template generates is left out, as it would no longer fit once you change the copy.
+- In an equation, each operator goes on a line of its own before its term, `|` separates diagrams set side by
+  side, and `\\` starts a new row.
+- `styles` are the site's line-style names. They are known while expanding, so lines that use them are accepted,
+  but they are not written out as `style` statements.
+- `unit` is the unit the block will be drawn at: the fence's `unit=`, or the site's. As in `render()`, anything but
+  a positive number is ignored. Some templates size themselves by the unit, such as a standing self-energy with
+  `mom=` ([Momentum](/docs/guides/momentum#room-for-the-arrow-standing-up)):
+
+  ```js
+  import { expand } from 'fumadocs-feynman';
+
+  expand('fock vertical mom=q');               // ... b at (0, 2.8) ...
+  expand('fock vertical mom=q', { unit: 30 }); // ... b at (0, 3.73) ...
+  ```
+
+- A block with errors throws an `Error` that lists them in line order, as `renderSVG()` does.
+
+## templatesIn
+
+```ts
+function templatesIn(source: string, options?: { styles?: Record<string, string> }): string[];
+```
+
+Returns the names of the templates a block uses, each once, in the order they first appear. A block written by hand
+uses none. It does not throw: a block with errors still reports the templates it names. The remark plugin uses it to
+choose between Template / By hand tabs and a single code block.
+
+```js
+import { templatesIn } from 'fumadocs-feynman';
+
+templatesIn('dyson\n+ fock');  // ['dyson', 'fock']
+templatesIn('a at (0, 0)');    // []
+```
+
+## parse
+
+```ts
+function parse(source: string, options?: { unit?: number; styles?: Record<string, string>; grid?: boolean }): {
+  items: Array<{ op: string; br?: boolean; term?: Term; ellipsis?: boolean }>;
+  styles: Record<string, { base: string; opts: Record<string, unknown>; line?: number }>;
+  unit?: number;
+  unitGiven: boolean;
+  grid?: boolean;
+  errors: DiagramError[];
+  templates: string[];
+};
+```
+
+Reads a block into terms without drawing it.
+
+- `items` has one entry per term of an equation, or one for a single diagram. `op` is the operator before the term
+  (`''` for none), `br` is true when the term starts a new row, `term` is the [`Term`](#term), with its templates
+  already built into it, and `ellipsis` marks a `...` term.
+- `styles` holds the site's styles from `options` and the block's `style` statements. A style the block defines
+  carries the `line` it is on.
+- `unit` is the block's `unit` statement, else `options.unit`. `unitGiven` says which: it is true when the block
+  has a `unit` statement of its own.
+- `grid` is true when the block has a `grid` statement, or when `options.grid` is.
+- `errors` are the errors found while reading. Some are found only while drawing, such as a line to a vertex that
+  does not exist, so `render()` can report more.
+- `templates` is what [`templatesIn()`](#templatesin) returns.
+
+```js
+import { parse } from 'fumadocs-feynman';
+
+const doc = parse('style D = photon\nfock\n= gw\n+ ...');
+doc.items.map((item) => item.op); // ['', '=', '+']
+doc.items[2].ellipsis;            // true
+doc.styles;                       // { D: { base: 'photon', opts: {}, line: 1 } }
+doc.templates;                    // ['fock', 'gw']
+```
+
+## Term
+
+```ts
+class Term {
+  title: string | null;
+  caption: string | null;
+  node(name: string, x: number, y: number, shape?: BuiltinShape | string, opts?: NodeOptions): string;
+  pt(x: number, y: number): string;
+  edge(from: Endpoint, to: Endpoint, style?: BuiltinLineStyle | string, opts?: EdgeOptions): this;
+  text(
+    str: string,
+    x: number,
+    y: number,
+    opts?: { size?: number; color?: string; anchor?: 'start' | 'middle' | 'end'; upright?: boolean },
+  ): this;
+}
+
+/** 'a', 'a.nw' (an anchor), [x, y] in units, or { rel: [dx, dy] } relative to the other end. */
+type Endpoint = string | [number, number] | { rel: [number, number] };
+```
+
+One diagram, built in code. Coordinates are in units, with y pointing up, as in the language.
+
+- `node(name, x, y, shape, opts)` adds a vertex and returns its name. The shape is one of [`SHAPES`](#shapes),
+  `dot` by default.
+- `pt(x, y)` adds an invisible point, for the free end of a leg, and returns the name it makes up (`#p0`, `#p1`,
+  …), which the language cannot write.
+- `edge(from, to, style, opts)` adds a line and returns the term, so calls chain. The style is one of
+  [`LINE_STYLES`](#line_styles) or a name given in the `styles` of [`renderModel()`](#rendermodel), `fermion` by
+  default.
+- `text(str, x, y, opts)` adds a text at the point, centred on it by default, and returns the term.
+- `title` is the accessible description, and `caption` the caption under the diagram.
+
+```js
+import { Term, renderModel } from 'fumadocs-feynman';
+
+const t = new Term();
+const a = t.node('a', 0, 0);
+const b = t.node('b', 2.8, 0);
+t.edge(t.pt(-0.8, 0), a, 'fermion')
+  .edge(a, b, 'fermion', { label: 'G^0', below: true })
+  .edge(b, t.pt(3.6, 0), 'fermion')
+  .edge(a, b, 'phonon', { bulge: 1.2, above: true, label: 'F^0' });
+
+const { svg, errors } = renderModel(t);
+```
+
+It draws the same diagram as this block:
+
+```feynman source
+a at (0, 0); b at (2.8, 0)
+(-0.8, 0) -> a fermion
+a -> b fermion below "G^0"
+b -> (3.6, 0) fermion
+a -- b phonon bulge=1.2 above "F^0"
+```
+
+The options are those of the language, which the [language reference](/docs/reference/language) describes in
+full. A few are written differently in code:
+
+- The arrow's direction is `arrow: 'fwd'` or `arrow: 'back'`, where the language writes `->` or `<-`. Left out, a
+  fermion line gets `'fwd'`, so write `arrow: 'none'` for a fermion line with no arrowhead.
+- `arrow=end` is `arrowAt: 'end'`, and `arrowpos=0.3` is `arrowPos: 0.3`.
+- The bare words `arc` and `bend` are `bend: 0.5` and `bend: 0.35`.
+
+### NodeOptions
+
+<TypeTable
+  type={{
+    label: {
+      type: 'string',
+      description: 'The label, in the TeX subset. It sits inside a blob, bubble, box, triangle or lens, and beside any other shape.',
+    },
+    pos: {
+      type: 'string',
+      default: "'below'",
+      description:
+        'Where the label goes: below, above, left, right, a compass point (ne, nw, se, sw) or an angle in degrees. On a blob, bubble, box, triangle or lens the label sits inside unless pos is anything but center, an angle included.',
+    },
+    color: {
+      type: 'string',
+      description: 'A colour token, an alias such as teal, or any CSS colour.',
+    },
+    r: {
+      type: 'number',
+      description: 'The radius in units (blob, triangle, small glyphs).',
+    },
+    w: {
+      type: 'number',
+      description: 'The width in units of a box or a lens, as drawn on the page.',
+    },
+    h: {
+      type: 'number',
+      description: 'The height in units of a box or a lens, as drawn on the page. A lens is never thicker than it is long.',
+    },
+    dir: {
+      type: 'string | number',
+      description:
+        'Which way a triangle points (right by default), or how a lens lies (upright unless left or right): up, down, left, right, a compass point or an angle in degrees.',
+    },
+    size: {
+      type: 'number',
+      default: '13',
+      description: 'The font size in px of a label beside the vertex.',
+    },
+    faint: {
+      type: 'boolean',
+      description: 'Draw the vertex faint.',
+    },
+  }}
+/>
+
+### EdgeOptions
+
+<TypeTable
+  type={{
+    arrow: {
+      type: "'fwd' | 'back' | 'none'",
+      description:
+        'The arrowhead: fwd points from the first end to the second, back the other way. Left out, fermion-like styles (fermion, ghost) get fwd and the others none. Phonon, photon, Coulomb, screened, field, gluon and impurity lines carry no arrow, and asking for one is an error.',
+    },
+    flip: {
+      type: 'boolean',
+      description: 'Reverse the default arrow of a fermion-like style.',
+    },
+    arrowAt: {
+      type: "'mid' | 'end' | 'start'",
+      default: "'mid'",
+      description:
+        'Where the arrowhead sits: in the middle; at the end the arrow points to, with its tip on that end; or at the end it leaves, inside the line.',
+    },
+    arrowPos: {
+      type: 'number',
+      description: 'Where a middle arrowhead sits, as a fraction along the line (arrowpos= in the language).',
+    },
+    marker: {
+      type: "'cross' | 'none'",
+      description: 'A mark in the middle of the line: a cross, as impurity lines have, or none.',
+    },
+    label: {
+      type: 'string',
+      description: 'The label, in the TeX subset.',
+    },
+    side: {
+      type: "'left' | 'right' | 'in' | 'out'",
+      description: 'Where the label goes: left or right of the written direction, or in or out of an arc or a loop.',
+    },
+    above: {
+      type: 'boolean',
+      description:
+        'A side of the page: on a straight line it places the label, on an arc the bulge, on a loop the loop. It works on lines within 45° of horizontal.',
+    },
+    below: {
+      type: 'boolean',
+      description: 'The other side of the page, as for above.',
+    },
+    dist: {
+      type: 'number',
+      description: "The label's distance from the line, in px.",
+    },
+    pos: {
+      type: 'number',
+      description: 'Where the label sits, as a fraction along the line, from 0 to 1.',
+    },
+    bend: {
+      type: 'number',
+      description:
+        "An arc, with its height as a fraction of the distance between the ends (0.5 is a half circle). A positive bend bulges to the left of the written direction; with above or below, they give the side.",
+    },
+    bulge: {
+      type: 'number',
+      description: 'An arc, with its height in units, the same units as positions. It needs above or below.',
+    },
+    loop: {
+      type: 'boolean',
+      description: 'A loop from the vertex back to itself. A line from a vertex to the same vertex is a loop anyway.',
+    },
+    dir: {
+      type: 'string | number',
+      default: "'up'",
+      description: "A loop's direction: up, down, left, right, a compass point or an angle in degrees.",
+    },
+    size: {
+      type: 'number',
+      default: '1',
+      description: "A loop's size, in units.",
+    },
+    cw: {
+      type: 'boolean',
+      description: 'The loop runs clockwise.',
+    },
+    mom: {
+      type: 'string',
+      description:
+        'A momentum arrow beside the line, never on it, with this label. It runs along the written direction, from the first end to the second.',
+    },
+    momside: {
+      type: "'left' | 'right'",
+      description:
+        'The side of the written direction the momentum arrow goes on. By default it is opposite the label (on a loop, outside).',
+    },
+    momdir: {
+      type: "'back'",
+      description: 'Turns the momentum arrow round, against the written direction.',
+    },
+    mompos: {
+      type: 'number',
+      description:
+        'Where the momentum arrow sits, as a fraction along the line. By default it sits beside the label (on a loop, a sixth of the way round from a label outside).',
+    },
+    color: {
+      type: 'string',
+      description: 'A colour token, an alias such as teal, or any CSS colour.',
+    },
+    width: {
+      type: 'number',
+      default: '1.8 (3.2 when heavy)',
+      description: 'The stroke width, in px.',
+    },
+    amp: {
+      type: 'number',
+      description: 'The amplitude of a wave, zigzag or coil, in px.',
+    },
+    wl: {
+      type: 'number',
+      description: 'The wavelength of a wave, zigzag or coil, in px.',
+    },
+    dash: {
+      type: 'string',
+      description: "An SVG dash pattern, such as '5 4'.",
+    },
+    dressed: {
+      type: 'boolean',
+      description:
+        "The style's dressed form: double for fermion, scalar and plain, screened for coulomb, heavy for phonon, photon, field, gluon and boson. Screened, ghost and impurity have no dressed form and stay as they are.",
+    },
+    bare: {
+      type: 'boolean',
+      description: 'The bare form, the reverse of dressed.',
+    },
+    heavy: {
+      type: 'boolean',
+      description: 'A thick stroke.',
+    },
+    thin: {
+      type: 'boolean',
+      description: 'A thin stroke, for a style that is heavy.',
+    },
+    double: {
+      type: 'boolean',
+      description: 'Two parallel strokes. false draws a double style with one.',
+    },
+    faint: {
+      type: 'boolean',
+      description: 'Draw the line faint.',
+    },
+    opacity: {
+      type: 'number',
+      description: "The line's opacity, from 0 to 1.",
+    },
+    over: {
+      type: 'boolean',
+      description:
+        'The line passes over the lines drawn before it: each line it crosses gets a gap, except a dashed or dotted one, which keeps its own gaps.',
+    },
+  }}
+/>
+
+### Text options
+
+<TypeTable
+  type={{
+    size: {
+      type: 'number',
+      default: '14',
+      description: 'The font size, in px.',
+    },
+    color: {
+      type: 'string',
+      default: "'ink'",
+      description: 'A colour token, an alias or any CSS colour. A particle hue is set in its -text variant.',
+    },
+    anchor: {
+      type: "'start' | 'middle' | 'end'",
+      default: "'middle'",
+      description: 'Which end of the text sits at x.',
+    },
+    upright: {
+      type: 'boolean',
+      description: 'Set every letter upright, Latin letters included.',
+    },
+  }}
+/>
+
+## Equation
+
+```ts
+class Equation {
+  terms: Array<Term | { ellipsis: true }>;
+  ops: string[];
+  title: string | null;
+  add(op: string, term: Term | { ellipsis: true }): this;
+}
+```
+
+Terms joined by operators. `add(op, term)` appends a term with the operator before it (`''` for none) and returns
+the equation. `{ ellipsis: true }` is a ⋯ term. `ops[i]` is the operator before `terms[i]`, and `title` the
+accessible description of the whole. `renderModel()` sets an equation in one row, which wraps on a narrow column.
+
+```js
+import { Term, Equation, renderModel } from 'fumadocs-feynman';
+
+const full = new Term();
+full.edge([0, 0], [1.8, 0], 'fermion', { dressed: true, label: 'G' });
+const bare = new Term();
+bare.edge([0, 0], [1.8, 0], 'fermion', { label: 'G^0' });
+
+const eq = new Equation().add('', full).add('=', bare).add('+', { ellipsis: true });
+const { html } = renderModel(eq);
+```
+
+It draws the same equation as this block:
+
+```feynman source
+(0, 0) -> (1.8, 0) fermion dressed "G"
+= (0, 0) -> (1.8, 0) fermion "G^0"
++ ...
+```
+
+## TEMPLATES
+
+```ts
+const TEMPLATES: Record<string, TemplateSpec>;
+
+interface TemplateSpec {
+  title: string;
+  example: string;
+  params: Record<string, string | number | boolean>;
+  flags?: Record<string, Record<string, string | number | boolean>>;
+  build(
+    params: Record<string, string | number | boolean>,
+    env?: { unit?: number; given?: Set<string> },
+  ): Term | Equation;
+}
+```
+
+Every template, by name. The [template reference](/docs/reference/templates) is generated from this table.
+
+- `title` says what the template draws, and `example` is a block that uses it.
+- `params` holds every option with its default. The type of the default is the type of the option: a number, a
+  flag (`true` or `false`) or text.
+- `flags` holds bare words that set several options at once, such as `pp` for `ladder`, which sets
+  `channel: 'pp'`.
+- `build(params, env)` draws the template and returns a `Term`, or an `Equation` for a template such as `dyson`.
+  Give it every option, starting from `params`. It throws an `Error` when options conflict, but unlike the language
+  it does not check their names or types.
+- `env.unit` is the px per unit the result will be drawn at (40 by default), as some templates keep room, in units,
+  for labels of fixed size. `env.given` names the options the block wrote, which such a template keeps as written.
+
+```js
+import { TEMPLATES, renderModel } from 'fumadocs-feynman';
+
+Object.keys(TEMPLATES);   // ['propagator', 'dyson', 'sigma', 'fan-migdal', ...]
+TEMPLATES.ladder.params;  // { n: 3, channel: 'ph', rung: 'screened', rungLabel: 'W', ... }
+TEMPLATES.ladder.flags;   // { ph: { channel: 'ph' }, pp: { channel: 'pp' } }
+
+// the same diagram as the block: ladder n=4 pp
+const ladder = TEMPLATES.ladder.build({ ...TEMPLATES.ladder.params, n: 4, channel: 'pp' });
+renderModel(ladder).svg;
+```
+
+## LINE_STYLES
+
+```ts
+const LINE_STYLES: Record<string, {
+  pattern: string;
+  color: string;
+  arrow?: boolean;
+  double?: boolean;
+  heavy?: boolean;
+  underlay?: 'dash';
+  marker?: 'cross';
+}>;
+```
+
+The built-in line styles. `pattern` is how the stroke is drawn, `color` is a [colour token](#tokens), and `arrow`
+marks the fermion-like styles, which get an arrowhead by default.
+
+| Style | Pattern | Colour | `arrow` | Stroke |
+| --- | --- | --- | --- | --- |
+| `fermion` | solid | electron | yes |  |
+| `fermion2` | solid | electron | yes | double |
+| `phonon` | zigzag | phonon |  |  |
+| `phonon2` | zigzag | phonon |  | heavy |
+| `photon` | wave | photon |  |  |
+| `photon2` | wave | photon |  | heavy |
+| `coulomb` | dash | photon |  |  |
+| `screened` | dash | photon |  | double |
+| `field` | wave | photon |  | over dashes |
+| `field2` | wave | photon |  | heavy, over dashes |
+| `gluon` | coil | c5 |  |  |
+| `gluon2` | coil | c5 |  | heavy |
+| `scalar` | dash | ink |  |  |
+| `scalar2` | dash | ink |  | double |
+| `ghost` | dot | ink | yes |  |
+| `plain` | solid | ink |  |  |
+| `plain2` | solid | ink |  | double |
+| `boson` | wave | ink |  |  |
+| `boson2` | wave | ink |  | heavy |
+| `impurity` | dash | muted |  | a cross in the middle |
+
+`field` and `field2` carry one more key, `underlay: 'dash'`, and `impurity` carries `marker: 'cross'`. The language
+and `Term.edge()` also accept five aliases, which are not keys of the table: `electron` and `hole` for `fermion`,
+`electron2` for `fermion2`, `higgs` for `scalar`, and `interaction` for `coulomb`.
+
+## SHAPES
+
+```ts
+const SHAPES: Record<string, { kind: string; color?: string; r?: number; ru?: number; wu?: number; hu?: number; trim?: boolean }>;
+```
+
+The vertex shapes. `r` is a radius in px, for the small glyphs; `ru` a radius in units; `wu` and `hu` a width and
+a height in units. `trim` marks the shapes at whose edge every line stops.
+
+| Shape | Kind | Colour | Size | `trim` |
+| --- | --- | --- | --- | --- |
+| `dot` | dot | ink | radius 3 px |  |
+| `charge` | dot | ink | radius 3.4 px |  |
+| `current` | dot | c4 | radius 3.6 px |  |
+| `eph` | dot | phonon | radius 3.6 px |  |
+| `dipole` | dot | photon | radius 3.6 px |  |
+| `spin` | dot | c5 | radius 3.6 px |  |
+| `none` | none |  |  |  |
+| `point` | none |  |  |  |
+| `disk` | disk | muted | radius 6.5 px | yes |
+| `hatched` | hatched | muted | radius 8 px | yes |
+| `open` | open | ink | radius 4.5 px | yes |
+| `cross` | cross | ink | radius 4.5 px |  |
+| `otimes` | otimes | ink | radius 6.5 px | yes |
+| `square` | square | ink | radius 3.4 px |  |
+| `blob` | blob | muted | radius 0.42 units | yes |
+| `bubble` | blob | electron | radius 0.42 units | yes |
+| `box` | box | muted | 0.9 × 1.3 units | yes |
+| `triangle` | tri | muted | radius 0.46 units | yes |
+| `lens` | lens | electron | 0.8 × 1.4 units | yes |
+
+## themeCSS
+
+```ts
+function themeCSS(options?: { fumadocs?: boolean; media?: boolean }): string;
+```
+
+Returns the theme stylesheet: the `--feyn-*` colour and font variables for light and dark mode, and a few rules
+for `.feyn` figures and `.feyn-error` boxes. `themeCSS()` is the text of `fumadocs-feynman/style.css`, and what
+the component puts in the page.
+
+- `fumadocs` (default `true`): `ink`, `muted` and `surface` follow fumadocs' `--color-fd-foreground`,
+  `--color-fd-muted-foreground` and `--color-fd-background`. With `false` they keep the package's own colours.
+- `media` (default `true`): dark mode also follows the system setting, unless the page forces light with a `light`
+  class or `data-theme="light"`. With `false`, only `.dark` and `[data-theme="dark"]` switch to dark.
+
+```js
+import { writeFileSync } from 'node:fs';
+import { themeCSS } from 'fumadocs-feynman';
+
+// a stylesheet for a site without fumadocs
+writeFileSync('feynman.css', themeCSS({ fumadocs: false }));
+```
+
+## TOKENS
+
+```ts
+const TOKENS: { light: Record<string, string>; dark: Record<string, string> };
+```
+
+The colours of the theme. Each token becomes the CSS variable `--feyn-<token>`.
+
+| Token | Light | Dark | Used for |
+| --- | --- | --- | --- |
+| `electron` | `#2350c8` | `#6688f2` | electron lines, `bubble` and `lens` vertices |
+| `phonon` | `#c26a00` | `#c67c18` | phonon lines, `eph` vertices |
+| `photon` | `#b5306c` | `#d95e94` | photon, field, Coulomb and screened lines, `dipole` vertices |
+| `c4` | `#0b8aa3` | `#169fb6` | teal: `current` vertices |
+| `c5` | `#6d45c4` | `#9372ee` | violet: gluon lines, `spin` vertices |
+| `electron-text` | `#2350c8` | `#93adff` | labels in the electron hue |
+| `phonon-text` | `#92500a` | `#f0aa4f` | labels in the phonon hue |
+| `photon-text` | `#a1295f` | `#f286b5` | labels in the photon hue |
+| `c4-text` | `#076a80` | `#5cc8dc` | labels in teal |
+| `c5-text` | `#5a37a8` | `#b9a2ff` | labels in violet |
+| `ink` | `#151b29` | `#e3e8f1` | plain, scalar, ghost and boson lines, dots, text |
+| `muted` | `#5a6477` | `#96a0b3` | impurity lines, disks, blobs, boxes, momentum arrows, operators, captions |
+| `surface` | `#ffffff` | `#141a26` | the fill under shapes |
+
+## cssColor
+
+```ts
+function cssColor(color: string): string;
+```
+
+Turns a colour token, or an alias of one, into the CSS value that diagrams use. Any other value, such as `#hex`,
+`rgb()`, `currentColor` or `var(--x)`, passes through unchanged. These are the values `color=` accepts.
+
+```js
+import { cssColor } from 'fumadocs-feynman';
+
+cssColor('teal');    // 'var(--feyn-c4,#0b8aa3)'
+cssColor('#e11d48'); // '#e11d48'
+```
+
+The aliases: `blue` and `fermion` for `electron`; `amber` and `orange` for `phonon`; `rose` and `pink` for
+`photon`; `teal` and `current` for `c4`; `violet` and `purple` for `c5`; `fg` for `ink`; `grey` and `gray` for
+`muted`; `bg` for `surface`.
+
+## FONT_INLINE
+
+```ts
+const FONT_INLINE: string;
+// "'Source Serif 4','STIX Two Text',Cambria,Georgia,'Times New Roman',serif"
+```
+
+The serif font stack written into each SVG as the fallback of `--feyn-font-text`, for a page without the theme
+stylesheet. It is the stylesheet's stack for `--feyn-font-text` without `KaTeX_Main`, its first font.

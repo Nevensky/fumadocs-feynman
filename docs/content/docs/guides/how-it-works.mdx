@@ -1,0 +1,226 @@
+---
+title: How it works
+description: From a feynman code block to static SVG, the design decisions behind the drawings, and what it all costs.
+---
+
+A ```` ```feynman ```` block becomes SVG while the site builds. Nothing is computed in the reader's browser, and no
+layout engine or DOM is involved at any step.
+
+## From a code block to SVG
+
+<Steps>
+<Step>
+
+### The remark plugin
+
+`remarkFeynman` visits every code block whose language is `feynman`, or the plugin's `lang`. It checks the block (see
+[Errors](/docs/guides/errors)) and puts a `<Feynman>` element in its place, as fumadocs does for Mermaid: `chart` holds
+the block's text, and the fence's `caption`, `title`, `unit` and `id` become props of the same names. With `source`,
+the block's source follows, as a code block or as **Template** and **By hand** tabs
+([Source tabs](/docs/guides/source-tabs)).
+
+</Step>
+<Step>
+
+### The component
+
+MDX renders `<Feynman>` with the component you registered. It has no hooks and no `'use client'`, so with React Server
+Components, as fumadocs uses them on Next.js, it runs on the server only, at build time for a static page, and sends
+no JavaScript to the browser. It calls `render()` and puts the HTML it returns into a `<div class="feyn-root">`. With
+`injectStyle`, the default, it also renders the theme stylesheet as a `<style>` with `href` and `precedence`, which
+React 19 hoists into the head once per page. React 18 does not, so there you import the stylesheet yourself and turn
+`injectStyle` off, as [Theming](/docs/guides/theming#the-stylesheet) shows.
+
+</Step>
+<Step>
+
+### render()
+
+`render(chart, { caption, title, unit, styles, id, scriptItalic, grid })` parses the block into terms, split at the
+operators of an equation. A template adds its vertices, lines and texts to its term like any other statement. Each
+term is then drawn: positions become px, lines are cut where they meet a vertex and drawn with their pattern, arrows
+and labels are placed, and the vertices are drawn over the lines. With `grid`, the drafting grid goes under
+everything and the vertices' names over everything, so that no blob or lens hides a name. Labels are typeset from
+the TeX subset with a built-in table of glyph widths, not measured by a browser. The box around everything drawn,
+with a margin, becomes the SVG's `viewBox`.
+
+</Step>
+<Step>
+
+### The SVG
+
+The result is a `<figure>` with one inline SVG and its caption, if it has one, or, for an equation, a row of SVG terms
+with the operators set as text between them. Every colour is written as `var(--feyn-<token>, <light colour>)`, so the
+switch between light and dark is CSS and needs no new render ([Theming](/docs/guides/theming)).
+
+</Step>
+</Steps>
+
+`render()` is a plain function over strings. The plugin and the component call the same code that you can call
+yourself from `fumadocs-feynman` ([API reference](/docs/reference/api)).
+
+## The same output every time
+
+`render()` uses no randomness and no clock: the same block with the same options always gives the same HTML, so a
+rebuild changes a diagram's markup only when you change the diagram. If you render `<Feynman>` in a client component,
+the server and the browser produce the same markup, and hydration matches.
+
+The only ids in the SVG are those of patterns, such as the hatching of a `hatched` vertex. Each starts with `feyn-` and
+a hash of the block's text, followed by the term's index, so that different diagrams on a page do not share one. The
+fence's `id="…"`, the `id` prop of `<Feynman>` or the `id` option of `render()` sets the prefix instead. Two blocks
+with the same text produce the same ids, for the same patterns.
+
+## Design notes
+
+### No automatic layout
+
+Vertices sit where you put them, in units on a coarse grid, and templates cover the standard topologies. Layout is
+the hard part of general Feynman-diagram tools. Placing by hand keeps every diagram predictable: a change to the
+source changes the picture where you expect, and the source diffs like any text.
+
+### Strokes and labels in px
+
+`unit` (40 px by default) scales the geometry only. Lines are 1.8 px wide, or 3.2 px heavy, and their labels 14 px at
+any unit, so every diagram on a site has the same line weights and type. A smaller unit makes a diagram more compact,
+not finer.
+
+### Where lines end
+
+Lines stop where you can see them end. Every line stops at the edge of a disk, blob, box, triangle or lens, and of the
+`hatched`, `open` and `otimes` circles. At a small dot, a plain single line runs into the dot's centre, and every
+other line stops at its rim, so that its pattern starts where it can be seen. Where a double line ends on a dot, every
+dot of that diagram grows a little, so that both strands land on the rim and the dots keep one size.
+
+```feynman source
+a at (0, 0); b at (2.4, 0) disk; S at (4.4, 0) blob "\Sigma"
+leg a left
+a -> b fermion "G^0" below
+a -- b phonon bulge=0.9 above "F^0"
+b -> S fermion "G^0" below
+leg S right
+```
+
+At the dot `a`, the electron line runs into the centre and the phonon stops at the rim. At the disk `b` and the blob
+`S`, every line stops at the edge.
+
+### Box ports
+
+A line written to a corner of a box (`K.nw`, `K.ne`, `K.sw` or `K.se`) ends on a port: a point on a face, 0.2 units in
+from that corner, not on the rounded corner itself. A line that arrives more horizontally enters the side face, one
+that arrives more vertically the top or bottom face, so single and double lines meet the face squarely. An arc leaves
+from the face its tangent points through, so an arc over the top of a box starts on its top face.
+
+```feynman source
+box label="\Gamma"
+```
+
+The By hand tab shows the four lines written to the corners; they are drawn to the ports on the side faces.
+
+### Labels
+
+Arrows and labels sit halfway between the two vertices a line joins, measured between their centres, even where the
+line is cut short at one end; on a leg, they sit halfway along what is drawn. A label keeps clear of an arrowhead
+next to it. Its box follows its glyphs: the x-height or the cap height on top, and descenders only when it has some.
+A label above a line and one below it therefore sit at the same visible distance from it. A double line keeps its
+labels as far from its centre as a single line does, so that the labels of G⁰ and G line up across a Dyson equation.
+
+### Crossings and `over`
+
+Where two wavy, zigzag or coiled lines cross, the one written later passes over the other: a band of the page's
+colour cuts a short gap in the line underneath. A line marked `over` does the same to every line written before it
+that it crosses, so write it after the lines it should cross. A dashed or dotted line underneath keeps its own gaps
+instead, since a cut would leave slivers of dashes. A dashed `over` line puts a dash on each crossing, and an
+arrowhead of the line underneath moves off the crossing.
+
+`nbody`, `trion` and `biexciton` use `over` for rungs that skip a line, `vertex-correction crossed` for its rungs, and
+`arcs` and `sigma2 crossed` for arcs that cross. In a trion, the rung from the first electron to the second passes
+over the hole:
+
+```feynman source
+trion
+```
+
+### Hedin's triangle
+
+Lines that meet the triangle of Hedin's vertex end inside it. The triangle, drawn over them, hides their ends, so that
+single and double lines stop exactly on its edge.
+
+```feynman source
+gw gamma="\Gamma"
+```
+
+### Captions in an equation
+
+The captions under the terms of an equation share a baseline when the terms reach below the axis to depths that
+differ in steps of at most 36 px. A term that reaches much deeper keeps its caption to itself, rather than pushing
+every caption down. Here the Hartree diagram ends at its line, while Fock and GW have their labels below theirs, and
+the three captions still share a line:
+
+```feynman source
+hartree
+caption "Hartree"
+| fock
+caption "Fock"
+| gw
+caption "GW"
+```
+
+### The SVG stays inline
+
+Every diagram's SVG sets `display:inline; vertical-align:baseline` in its own `style` attribute. A CSS reset that
+makes every SVG a block, such as Tailwind's preflight, which fumadocs uses, therefore cannot shift the terms of an
+equation off its axis. The baseline of a term is the bottom of its diagram, which puts the diagram's y = 0, its main
+line, on the math axis of the row, where `=` and `+` are centred.
+
+### Equations wrap
+
+An equation too wide for the column wraps between its terms into rows of even length (`text-wrap: balance`), and each
+operator stays with the term after it. A `\\` at the start of a line starts a new row where you want one. The space
+that `|` puts between two diagrams disappears where a row breaks, so that a wrapped row stays centred.
+
+## Accessibility
+
+Each diagram's SVG has `role="img"` and an `aria-label`, its description. The labels inside are not read one by one.
+The description is the first of these that applies:
+
+1. the fence's `title="…"`, which is the `title` prop of `<Feynman>` and the `title` option of `render()`;
+2. a `title "…"` statement in the block;
+3. the template's own description, such as `Fock exchange self-energy` for `fock`;
+4. a description made from the lines, with labels spelled out: a fermion labelled `G^0` and a phonon arc labelled `F`
+   read `fermion G sup 0, phonon F arc`;
+5. for a diagram with vertices but no lines, a description made from the vertices: a blob labelled `\Sigma` and a
+   box labelled `K` read `blob Σ, box K`.
+
+TeX in a `title` statement or a template's description is read as text in the same way: the last term of `dyson`
+reads `G sup 0, self-energy Σ, G`. The fence's `title` is used as written, so write it as text, with `G⁰` rather than
+`G^0`:
+
+````md
+```feynman title="Fock exchange self-energy: a bare Coulomb line v spans the electron line G⁰"
+fock
+```
+````
+
+An equation's figure has `role="group"`, labelled with its terms, as in
+`Equation: (Hartree tadpole self-energy) + (Fock exchange self-energy)`. The fence's `title` replaces that label, and
+each term keeps its own. A description made from the lines names only the lines, and one made from the vertices only
+the vertices, so a diagram written by hand reads better with a `title`.
+
+A caption, given as `caption="…"` in the fence or as a `caption` statement, is text on the page: the `<figcaption>` of
+the figure, or a line under a term of an equation. The error box that replaces a broken diagram has `role="alert"`.
+
+## What it costs
+
+All the work happens at build time. The plugin draws each block once to check it, the component draws it again for
+the page, and a block with `source` is written out once more for its By hand tab. Drawing is string work. On Node 22,
+once warm, a typical diagram takes well under a millisecond and the largest equations on this site a few milliseconds;
+from a cold start, the plugin gets through all 47 examples, By hand tabs included, in about a tenth of a second.
+
+Nothing runs in the browser. A diagram is markup in the page, a few kilobytes of HTML: from 2 to 27 KB for the
+examples here, about 6 KB for a typical one. The theme stylesheet is about 2 KB.
+
+With the App Router, Next.js also embeds a page's server-rendered output in the page as its RSC payload, so the
+markup of each diagram is in the HTML twice, as is every other server-rendered element. With `injectStyle`, each
+`<Feynman>` also carries a copy of the stylesheet in that payload, although React puts it into the head only once: on
+a page of 49 diagrams, the copies came to 111 KB before compression and about 4 KB after gzip. To leave them out,
+import the stylesheet yourself and turn `injectStyle` off, as [Theming](/docs/guides/theming#the-stylesheet) shows.

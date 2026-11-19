@@ -1,0 +1,38 @@
+---
+title: Introduction
+description: Feynman diagrams for fumadocs, written in code blocks and rendered to static SVG when the site builds.
+---
+
+fumadocs-feynman draws Feynman diagrams on fumadocs sites. You write a diagram in a `feynman` code block, the way fumadocs uses Mermaid, in a small language of vertices, lines and templates. When the site builds, the block becomes static SVG whose colours follow the site's light and dark themes. The notation is that of many-body physics: electrons and holes, phonons, photons, the bare and screened Coulomb interaction, and the self-energies, bubbles, ladders and vertices built from them.
+
+This block draws the Fan–Migdal self-energy, an electron that emits and reabsorbs a phonon, with dressed lines and screened vertices:
+
+```feynman source
+fan-migdal dressed vertex=disk
+```
+
+The word `source` after `feynman` puts the block's source under the diagram. This block uses the template `fan-migdal`, so its source comes in two tabs: **Template**, the line as written, and **By hand**, the same diagram written out as two vertices, two legs, an electron line and a phonon arc. When no template fits a diagram, copy the By hand version of the nearest one and change what you need: see [Source tabs](/docs/guides/source-tabs).
+
+## What you get
+
+- **Static SVG with no client JavaScript.** Diagrams are drawn on the server when the site builds, with no layout engine, and come out the same on every build.
+- **Light and dark.** Colours are CSS variables that switch with the site's theme.
+- **Templates and the By hand tab.** Self-energies, Dyson equations, bubbles, ladders, excitons, trions, GW and GT take one line each, and any of them can be shown written out vertex by vertex.
+- **Checked at build time.** A mistake in a block is a build warning (an error with `strict: true`) that names the file and the line, and often the fix. The page shows an error box in place of the diagram.
+- **Many-body notation and colours.** G for electrons (G⁰ free), F for phonons, D for photons, W for the screened and v for the bare Coulomb interaction. Electrons are blue, phonons amber, photons and Coulomb lines rose. Arrows mark fermions only: phonon, photon and interaction lines carry none.
+
+## How it works
+
+The remark plugin turns each `feynman` block into a `<Feynman chart="…" />` element and checks the diagram as the site builds. The `Feynman` component has no hooks and no `'use client'`, so it renders on the server, and the page receives the finished SVG with no JavaScript for it. [How it works](/docs/guides/how-it-works) follows a block through both steps.
+
+fumadocs-feynman is open source under the MIT licence, with its source [on GitHub](https://github.com/Nevensky/fumadocs-feynman).
+
+## Next steps
+
+<Cards>
+  <Card title="Installation" href="/docs/installation">Add the package, the remark plugin and the component to a fumadocs site.</Card>
+  <Card title="Quick start" href="/docs/quick-start">Build a first diagram one statement at a time, then draw it from a template.</Card>
+  <Card title="Writing diagrams" href="/docs/guides/writing-diagrams">Vertices, lines, legs, labels, arcs and equations.</Card>
+  <Card title="Using templates" href="/docs/guides/templates">Standard diagrams in one line, and how to add to them.</Card>
+  <Card title="Examples" href="/docs/examples">Diagrams from many-body physics, each with its source and its By hand form.</Card>
+</Cards>

@@ -1,0 +1,225 @@
+---
+title: Feynman component
+description: The Feynman server component draws a diagram from its source, and createFeynman gives it site-wide defaults.
+---
+
+Register `Feynman` as an MDX component. The [remark plugin](/docs/reference/remark-plugin) turns every `feynman`
+code block into a `<Feynman chart="…" />` element, and the component draws it as static SVG on the server. You can
+also use it yourself, in MDX or in a TSX page.
+
+## Import
+
+```tsx
+import { Feynman, createFeynman } from 'fumadocs-feynman/react';
+// Feynman is also the default export: import Feynman from 'fumadocs-feynman/react';
+```
+
+```ts
+function Feynman(props: FeynmanProps): ReactElement;
+function createFeynman(defaults?: Partial<FeynmanProps>): (props: FeynmanProps) => ReactElement;
+```
+
+The props type is exported as `FeynmanProps`.
+
+## Register it
+
+```tsx title="components/mdx.tsx"
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
+import { Feynman } from 'fumadocs-feynman/react';
+
+export function getMDXComponents(components?: MDXComponents) {
+  return { ...defaultMdxComponents, Feynman, ...components };
+}
+```
+
+Register it under the name the plugin emits: `Feynman`, unless you changed the plugin's `component` option. For
+site-wide notation, register a component made with [`createFeynman`](#createfeynman) instead.
+
+## Props
+
+<TypeTable
+  type={{
+    chart: {
+      type: 'string',
+      description: 'The diagram source: what a feynman code block contains.',
+    },
+    children: {
+      type: 'string',
+      description:
+        'The source as a string child, used when chart is not a string. In MDX, write it as an expression, {`…`}: text between the tags is read as Markdown.',
+    },
+    caption: {
+      type: 'string',
+      description:
+        'A caption under the diagram, in the TeX subset of labels, with Latin letters upright as in text. On a single diagram it wins over a caption statement in the source; under an equation it captions the whole.',
+    },
+    title: {
+      type: 'string',
+      default: 'generated from the diagram',
+      description: 'The accessible description: the aria-label of the SVG, or of the figure that holds an equation.',
+    },
+    unit: {
+      type: 'number | string',
+      default: '40',
+      description:
+        'Pixels per diagram unit. Strokes and labels keep their size. A string is read as a number, and anything but a positive number is ignored. A unit statement in the source wins.',
+    },
+    styles: {
+      type: 'Record<string, string>',
+      description:
+        "Line-style names of your own, such as { D: 'photon', F: 'phonon dressed' }. A style statement in the source wins over a name given here.",
+    },
+    id: {
+      type: 'string',
+      default: 'feyn- and a hash of the source',
+      description: 'The prefix of the SVG ids (the hatch pattern of hatched vertices).',
+    },
+    className: {
+      type: 'string',
+      description: 'Classes for the wrapping div, added after feyn-root.',
+    },
+    injectStyle: {
+      type: 'boolean',
+      default: 'true',
+      description:
+        'Render the theme stylesheet as a style element that React 19 puts in the head, once per page. Set it to false with React 18, or when you import fumadocs-feynman/style.css yourself.',
+    },
+    scriptItalic: {
+      type: 'boolean',
+      default: 'false',
+      description:
+        'Italic Latin letters in sub- and superscripts. By default they are upright, as they are mostly names such as cn, ep and irr.',
+    },
+    grid: {
+      type: 'boolean',
+      default: 'false',
+      description:
+        'Draw the drafting grid of whole units, with the name of every vertex, as a grid statement in the source does.',
+    },
+  }}
+/>
+
+## What it renders
+
+```html
+<!-- in <head>, once per page (React 19) -->
+<style data-precedence="medium" data-href="fumadocs-feynman-theme">/* the theme */</style>
+
+<!-- where the diagram goes -->
+<div class="feyn-root">
+  <figure class="feyn">
+    <svg class="feyn-svg" role="img" aria-label="…">…</svg>
+    <figcaption class="feyn-caption">…</figcaption>
+  </figure>
+</div>
+```
+
+- The `figcaption` is there only when the diagram has a caption.
+- An equation is a `figure` with `role="group"` and an `aria-label`. Its terms sit in a `div` with the class
+  `feyn-eq`, and wrap on a narrow column.
+- Inside `feyn-eq`, each operator, and the ⋯ of an ellipsis, is a `span.feyn-op`, and each diagram a
+  `span.feyn-term`, with its caption in a `span.feyn-cap`. Each term shares a `span.feyn-pair` with the operator
+  before it, so that the two never wrap apart.
+- In the SVG, labels and free texts are `text.feyn-lab` elements. The drafting grid is drawn in two `g.feyn-grid`
+  groups: its lines under the diagram, and the vertex names over it.
+- When the source has errors, the `div` holds an error box instead (class `feyn-error`, `role="alert"`). It lists
+  the errors with their line numbers above the numbered source.
+
+## A server component
+
+`Feynman` has no hooks, no effects and no `'use client'`. In React Server Components, as fumadocs uses them on
+Next.js, it renders on the server, at build time for static pages, and the browser receives plain HTML. No
+JavaScript ships for the diagrams.
+
+- Colours are CSS variables, so switching between light and dark needs no re-render.
+- The markup depends only on the props, so it is the same wherever it renders.
+- Imported into a client component, it still works, but the renderer then goes into the client bundle.
+
+### The stylesheet
+
+With React 19 there is nothing to do. Each `Feynman` renders a style element with
+`href="fumadocs-feynman-theme"` and `precedence="medium"`, and React puts one copy in `<head>`, however many
+diagrams the page has.
+
+React 18 does not move style elements: turn `injectStyle` off and import `fumadocs-feynman/style.css` once, as
+[Theming](/docs/guides/theming#the-stylesheet) shows.
+
+The stylesheet is the same text as [`themeCSS()`](/docs/reference/api#themecss). Without it, diagrams are still
+legible: every colour carries its light value as a fallback. The stylesheet adds dark mode and the fumadocs
+foreground and background colours.
+
+## createFeynman
+
+`createFeynman(defaults)` returns a component that draws every diagram with your defaults. Any prop can have one;
+the usual ones are site-wide notation (`styles`) and a site-wide `unit`. Register the component it returns in place
+of the plain `Feynman`.
+
+How the defaults and the props of each diagram combine:
+
+- `styles` merge name by name. A name the props give replaces the default of that name, and the other defaults
+  stay.
+- `unit` is the prop's when it is a positive number (a string is read as a number), and the default's otherwise.
+  A fence with no `unit=` therefore draws at the site's unit.
+- Every other prop replaces its default.
+- A `style` or `unit` statement in the source wins over both.
+
+The remark plugin does not pass `styles` or the site's `unit` on to the component, and the component does not tell
+the plugin about them. Give the plugin the same values, so that the build checks, and writes out by hand, what the
+page draws. [Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit) shows one way to share them.
+
+## In MDX
+
+A `feynman` code block is the usual way to draw a diagram. Write the element yourself when you need a prop that
+the fence meta does not have, such as `styles`, `className` or `scriptItalic`:
+
+```mdx
+<Feynman
+  chart={`a at (0, 0); b at (2.8, 0)
+leg a left; leg b right
+a -> b fermion "G^0" below
+a -- b D bulge=1.2 above "D^0"`}
+  styles={{ D: 'photon' }}
+  caption="Electron self-energy with one photon"
+/>
+```
+
+<Feynman
+  chart={`a at (0, 0); b at (2.8, 0)
+leg a left; leg b right
+a -> b fermion "G^0" below
+a -- b D bulge=1.2 above "D^0"`}
+  styles={{ D: 'photon' }}
+  caption="Electron self-energy with one photon"
+/>
+
+The plugin checks code blocks only, so an element written this way is not checked at build time. A mistake shows
+as an error box on the page.
+
+## In TSX pages
+
+Import the component and pass the source as a string:
+
+```tsx title="app/diagrams/page.tsx"
+import { Feynman } from 'fumadocs-feynman/react';
+
+const fanMigdal = `
+  a at (0, 0) disk; b at (2.8, 0) disk
+  leg a left; leg b right
+  a -> b fermion dressed "G" below
+  a -- b phonon dressed bulge=1.2 above "F"
+`;
+
+export default function Page() {
+  return <Feynman chart={fanMigdal} caption="Fan–Migdal self-energy" />;
+}
+```
+
+- Indentation and blank lines in the source do not matter: every line is trimmed.
+- In a JavaScript string, a TeX backslash must be doubled (`"\\Sigma"`), or the string written with `String.raw`:
+
+  ```tsx
+  <Feynman chart={String.raw`S at (0, 0) blob "\Sigma"`} />
+  ```
+
+- A string child works as well: `<Feynman>{fanMigdal}</Feynman>`.

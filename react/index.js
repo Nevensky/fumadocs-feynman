@@ -13,13 +13,13 @@ function num(v) {
 }
 
 /**
- * Props: chart (the block source; a string child works too), caption, title, unit, styles, id, className,
+ * Props: chart (the block source; a string child works too), caption, title, unit, styles, id, className, grid,
  * injectStyle (default true: React 19 hoists one <style> with the theme into <head>; set it to false if you
  * import 'fumadocs-feynman/style.css' yourself).
  */
-export function Feynman({ chart, children, caption, title, unit, styles, id, className, injectStyle = true, scriptItalic }) {
+export function Feynman({ chart, children, caption, title, unit, styles, id, className, injectStyle = true, scriptItalic, grid }) {
   const source = typeof chart === 'string' ? chart : typeof children === 'string' ? children : '';
-  const out = render(source, { caption, title, unit: num(unit), styles, id, scriptItalic });
+  const out = render(source, { caption, title, unit: num(unit), styles, id, scriptItalic, grid });
   return h(Fragment, null,
     injectStyle ? h('style', { href: 'fumadocs-feynman-theme', precedence: 'medium' }, CSS) : null,
     h('div', { className: ['feyn-root', className].filter(Boolean).join(' '), dangerouslySetInnerHTML: { __html: out.html } }));

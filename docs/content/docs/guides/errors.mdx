@@ -1,0 +1,259 @@
+---
+title: Errors
+description: How diagram errors are reported at build time and on the page, and what the common messages mean.
+---
+
+A mistake in a ```` ```feynman ```` block never draws a wrong picture. The build prints a warning with the file and the
+line, and the page shows an error box where the diagram would be. The rest of the page builds and renders as usual.
+
+## The error box
+
+This block refers to a vertex that does not exist and misspells a template option:
+
+````md
+```feynman
+a at 0,0; b at 2,0
+a -> c fermion "G"
+ladder n=3 rungs=W
+```
+````
+
+On the page, it becomes:
+
+```feynman
+a at 0,0; b at 2,0
+a -> c fermion "G"
+ladder n=3 rungs=W
+```
+
+The box gives the number of errors, then each error with its line, then the block with its lines numbered. Lines are
+counted inside the block, from 1 for its first line that is not blank. Every error in the block is listed, in line
+order, not only the first.
+
+## At build time
+
+While the site builds, the remark plugin checks every block, with the styles and the unit given to the plugin, and
+prints each error with the file and the line in it. For the block above, it prints:
+
+```txt
+[fumadocs-feynman] /path/to/site/content/docs/guides/errors.mdx:25: unknown vertex "c"
+[fumadocs-feynman] /path/to/site/content/docs/guides/errors.mdx:26: ladder: unknown option "rungs"; did you mean rung? (options: n, channel, rung, rungLabel, line, dressed, top, bottom, h, spacing, crossed)
+```
+
+The path is the file's, as the MDX loader gives it. The line is the line in that file: the fence's line, plus any
+blank lines at the top of the block, plus the error's line in the block. An error that belongs to no line, such as an
+empty block, points at the block's first line.
+
+Three [plugin options](/docs/reference/remark-plugin#options) change what the build does with errors: `strict: true`
+fails the build, `quiet: true` prints nothing on the console, and `validate: false` skips the check, so that errors
+show only on the page.
+
+With `strict`, the plugin still reports every error on the page first, as above, so that one build shows them all,
+not only the first. It then fails the build once, with the first error and a count of the others. For the block
+above, the build fails with:
+
+```txt
+feynman diagram: unknown vertex "c" (and 1 more: see the messages above)
+```
+
+To warn while you write and fail in CI:
+
+```ts title="lib/source.ts"
+mdxOptions: applyMdxPreset({
+  remarkPlugins: (defaults) => [[remarkFeynman, { strict: process.env.CI === 'true' }], ...defaults],
+}),
+```
+
+The check knows only the styles and the unit that the plugin is given. Give it the same as the component, from one
+module, as [Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit) shows; with that module, the
+option above becomes `{ ...feynman, strict: process.env.CI === 'true' }`. Otherwise the build checks the blocks with
+other settings than the page draws them with: it reports errors that the page does not have, and can miss some that
+it has.
+
+## Reading a message
+
+A message says what it found, then what to write instead:
+
+> `bulge=1.5 is more than half the 2-unit distance between the ends, so the arc would be wider than the gap; use arc for a half circle, a smaller bulge, or bend= for more than a half circle`
+
+- Most messages start with where they come from: an error in a template's options with the template's name, as in
+  `fock: inner= needs vertical: …`, one in a vertex statement with the vertex, as in `vertex "a": …`, and one in a leg
+  or a text with `leg` or `text`.
+- A line number points at the statement. Where several statements share a line, separated by `;`, they share its
+  number. The vertices and lines that a template draws carry the line of the template's statement, so an error found
+  while drawing them, such as `unknown line style "D"` for `fan-migdal phonon=D`, points at the template.
+- Fix the first error first. A template whose own check fails, as in `fock: inner= needs vertical`, draws nothing, so
+  every line attached to its vertices reports `unknown vertex` as well. An unknown or mistyped option
+  (`ladder: unknown option "rungs"`, `ladder: n expects a number`) is only left out, and the template still draws.
+
+## Common errors
+
+### Unknown vertex
+
+```txt
+a at (0, 0); b at (2.8, 0)
+a -> c fermion "G"
+```
+
+> `unknown vertex "c"`
+
+A line names a vertex that its term does not have. Check the spelling first. A vertex belongs to its term: after `=`,
+`+` or `|` a new term begins, and its lines cannot reach a vertex of the term before. A template's vertices have names
+too (`a`, `b`, `v0`, …), which its By hand tab shows ([Source tabs](/docs/guides/source-tabs)), and so does `grid` on
+a line of its own.
+
+A line may come before the vertex it names, but a label may not. Labelling a vertex before it is placed, or one that
+does not exist, gives `no vertex "c" here`, with the vertices placed so far, and the nearest of their names if one is
+close.
+
+### Unknown option
+
+```txt
+a at (0, 0); b at (2.8, 0)
+a -> b fermion lable="G"
+```
+
+> `unknown option "lable=" on a line; did you mean label=?`
+
+On a line, a vertex or a text, a misspelt option suggests the nearest option when one is close; otherwise the message
+lists them all. A template suggests the nearest option too, and always lists its options:
+
+```txt
+ladder n=3 rungs=phonon
+```
+
+> `ladder: unknown option "rungs"; did you mean rung? (options: n, channel, rung, rungLabel, line, dressed, top, bottom, h, spacing, crossed)`
+
+The [template reference](/docs/reference/templates#ladder) gives each option with its default. Here the rungs' style
+is `rung=`, and their label `rungLabel=`:
+
+```feynman source
+ladder n=3 rung=phonon rungLabel=F
+```
+
+A template option that takes a number needs one after `=`. Written bare, as in `ladder n rung=phonon`, it gives
+`ladder: n expects a number, as in n=3`.
+
+### An unknown template or style
+
+A misspelt template alone on its line, such as `ladderr`, gives
+`unknown template or statement "ladderr"; did you mean ladder?`, followed by the list of templates; with no template
+close to it, the message has the list alone. Followed by options or flags of the template it is close to, as in
+`fok vertical`, the name is recognized as that template, misspelt:
+
+> `unknown template "fok"; did you mean fock?`
+
+A misspelt or undefined line style gives `unknown word "D"`, followed by the line styles. On a leg, the message starts
+with `leg:`, and a style written straight after the vertex, as in `leg a D`, is read as the leg's direction and gives
+`leg: "D" is not a direction (…)`. In a template's option, as in `fan-migdal phonon=D`, it is `unknown line style "D"`.
+
+If the page draws a block that the build reports this way, the style has reached the component but not the plugin:
+give both the same settings, as [Site-wide notation and unit](/docs/installation#site-wide-notation-and-unit) shows.
+
+### An arrow on a boson line
+
+```txt
+a at (0, 0); b at (2.8, 0)
+a -> b phonon "F"
+```
+
+> `a phonon line carries no arrow (an arrow marks a fermion: an electron, or a hole running back): draw it with -- (a leg without in or out), and show the momentum it carries with mom="q" beside it`
+
+An arrow marks a fermion. Phonon, photon, field, gluon, Coulomb, screened and impurity lines, dressed or not, carry
+none: write them with `--`, and their legs without `in` or `out`. The momentum such a line carries goes in its label,
+or beside it with `mom=`:
+
+```feynman source
+a at (0, 0); b at (2.8, 0)
+leg a left; leg b right
+a -> b fermion "G^0" below
+a -- b phonon bulge=1.2 above "F^0" mom="\mathbf{q}"
+```
+
+The momentum arrow runs along the written direction, here from `a` to `b`; `momdir=back` turns it round.
+`momside=`, `momdir=` and `mompos=` only place that arrow, so on a line without `mom=` they give
+`momside=, momdir= and mompos= place a momentum arrow: give the line one with mom="…"`.
+[Momentum](/docs/guides/momentum) has the rest.
+
+### above or below on a steep line
+
+```txt
+a at (0, 0)
+a -- (0, 1.6) photon "\mathbf{q}" above
+```
+
+> `above: this line is steeper than 45°, so it has no above or below; use side=left or side=right, counted along the written direction (written upwards, left is the page's left)`
+
+`above` and `below` name a side of the page, and a line has one only within 45° of horizontal. On a steeper line,
+place the label with `side=left` or `side=right`, counted along the written direction: for a line written upwards,
+left is the page's left.
+
+```feynman source
+a at (0, 0)
+(-1.4, 0) -> a fermion "\mathbf{k}" below
+a -> (1.4, 0) fermion "\mathbf{k}-\mathbf{q}" below
+a -- (0, 1.6) photon "\mathbf{q}" side=left
+```
+
+An arc between two ends one above the other cannot take `bulge=`, which needs `above` or `below`. Give it `bend=`
+instead: a positive bend bulges to the left of the written direction.
+
+### A bulge too big for the gap
+
+```txt
+a at (0, 0); b at (2, 0)
+a -- b phonon bulge=1.5 above "F^0"
+```
+
+> `bulge=1.5 is more than half the 2-unit distance between the ends, so the arc would be wider than the gap; use arc for a half circle, a smaller bulge, or bend= for more than a half circle`
+
+`bulge=` is the arc's height in units. A half circle, which `arc` draws, rises half the distance between the ends, and
+that is as high as `bulge=` goes. For more than a half circle, use `bend=` with `above` or `below`: the height
+divided by the distance, so that 0.5 is a half circle.
+
+```feynman source
+a at (0, 0); b at (2, 0)
+leg a left; leg b right
+a -> b fermion "G^0" below
+a -- b phonon arc above "F^0"
+```
+
+### Standing options without vertical
+
+```txt
+fock inner=chi
+```
+
+> `fock: inner= needs vertical: the inner diagram sits on the straight interaction of the standing self-energy`
+
+`fock`, `gw` and `fan-migdal` take options that only their standing forms use, and each of them is an error where it
+would do nothing:
+
+- `height=` needs `vertical`, and so do the options of the inner diagram, which `fock` and `fan-migdal` take:
+  `inner=`, `chi=`, `vtop=`, `momtop=`, `ladder=`, `rung=` and `rungLabel=`;
+- `ladder=`, `rung=` and `rungLabel=` also need `inner=bubble`, since the rungs go inside the bubble;
+- `chi=`, `vtop=` and `momtop=` also need `inner=`, since without an inner diagram they have nothing to label.
+
+```feynman source
+fock vertical inner=chi
+```
+
+[Self-energies](/docs/guides/self-energies#standing-up) describes the standing forms and their options.
+
+### A height too short for the momentum arrow
+
+```txt
+gw vertical mom="\mathbf{q}" height=2
+```
+
+> `gw: height=2 leaves no room for the momentum arrow beside the interaction: give it 2.6 at least`
+
+Standing up, `mom=` lengthens the interaction, so that the arrow and its label clear the electron line
+([Momentum](/docs/guides/momentum#room-for-the-arrow-standing-up) gives the lengths). A shorter `height=` is accepted
+down to the value the message gives. Around an inner diagram, the message counts the inner diagram and both pieces of
+the interaction. Below 40 px per unit the shortest height grows, since the arrow keeps its size in px; the message
+gives it for the block's unit.
+
+```feynman source
+gw vertical mom="\mathbf{q}" height=2.6
+```

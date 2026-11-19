@@ -30,7 +30,9 @@ export function resolveStyle(name, opts = {}, userStyles = {}) {
   let base = name, mods = {};
   for (let k = 0; k < 8 && userStyles[base]; k++) { const def = userStyles[base]; mods = { ...def.opts, ...mods }; base = def.base; }
   base = STYLE_ALIASES[base] || base;
-  const all = { ...mods, ...opts };
+  // a flag left false on the line (as templates pass them) does not undo one the style sets
+  const all = { ...mods };
+  for (const [k, v] of Object.entries(opts)) if (v !== false || !(k in mods)) all[k] = v;
   if (all.dressed) base = dressedOf(base);
   if (all.bare) base = bareOf(base);
   const st0 = LINE_STYLES[base];
@@ -131,14 +133,14 @@ function zigzagD(c, off, amp, wl) {
 // gluon: a helix seen from the side; loops form where the backward swing beats the forward drift.
 // theta runs over n turns less half a turn, so the coil is mirror-symmetric: n arches and n - 1 open loops,
 // both ends leave the axis on an arch, and the coil never runs past its ends
-function coilD(c, amp, wl) {
+function coilD(c, amp, wl, off = 0) {
   const L = G.length(c), n = Math.max(2, cnt(L / wl)), Th = G.TAU * n - Math.PI;
   let kr = 1.1 * amp, lam = (L - 2 * kr) / Th;
   if (kr < 1.3 * lam) { kr = 1.3 * lam; lam = (L - 2 * kr) / Th; }
   const N = n * 24, P = [];
   for (let i = 0; i <= N; i++) {
     const th = (Th * i) / N;
-    const u = lam * th + kr * (1 - Math.cos(th)), v = amp * Math.sin(th);
+    const u = lam * th + kr * (1 - Math.cos(th)), v = amp * Math.sin(th) + off;
     const s = u / L, sc = Math.min(1, Math.max(0, s)), p = G.at(c, sc), d = G.tan(c, sc), ex = (s - sc) * L;
     P.push([p[0] + d[0] * ex + d[1] * v, p[1] + d[1] * ex - d[0] * v]);
   }
@@ -185,6 +187,8 @@ function arrowHead(x, y, tx, ty, color, scale = 1) {
 }
 
 // ---------- labels ----------
+/** A title as plain text: the words that hold TeX (a template's labels) are read as labels, the rest kept as written. */
+const plainTitle = (t) => String(t).split(/(\s+)/).map((w) => (/[\\^_]/.test(w) ? labelText(w) : w)).join('');
 function placeLabel(out, bb, runs, px, py, nx, ny, gap, color, size = LABEL, { edge = false } = {}) {
   const m = measureRuns(runs, size), h = m.bottom - m.top;
   const ext = Math.abs(nx) * (m.w / 2) + Math.abs(ny) * (h / 2);
@@ -362,6 +366,12 @@ export function renderTerm(term, ctx) {
     if (A.port) { A.p = port(A.node, A.port, towardA); if (e.to.rel) B = place(e.to, A); }
     if (B.port) { B.p = port(B.node, B.port, towardB); if (e.from.rel) A = place(e.from, B); }
 
+    if (o.loop && A.node !== B.node) {
+      // name a vertex the loop could be on, not a point a leg invented
+      const nm = [e.from.node, e.to.node].find((x) => x && !N.get(x)?.anon);
+      err(`loop draws a line from a vertex back to itself${nm ? `: write ${nm} -- ${nm} … loop` : ''}`, e.line);
+      continue;
+    }
     const isLoop = o.loop || (A.node && A.node === B.node && !e.from.anchor && !e.to.anchor);
     // above / below name a side of the page, whatever order the ends are written in
     if (o.above && o.below) err('a line is above or below, not both', e.line);
@@ -415,7 +425,7 @@ export function renderTerm(term, ctx) {
     const bothVertices = !isLoop && A.node && B.node && !A.node.anon && !B.node.anon && curve.t1 != null;
     const tMid = bothVertices ? Math.min(0.9, Math.max(0.1, (0.5 - curve.t0) / (curve.t1 - curve.t0))) : 0.5;
     const col = cssColor(st.color);
-    const fade = st.faint ? ';opacity:.35' : st.opacity ? `;opacity:${+st.opacity}` : '';
+    const fade = st.faint ? ';opacity:.35' : st.opacity != null && st.opacity !== '' ? `;opacity:${+st.opacity}` : '';
     const hw = halfWidth(st);
 
     // Where this line crosses a line drawn before it, a band of the page colour laid under it cuts a gap in the
@@ -488,7 +498,7 @@ export function renderTerm(term, ctx) {
         }
         case 'wave': d = waveD(curve, off, st.amp, st.wl); break;
         case 'zigzag': d = zigzagD(curve, off, st.amp, st.wl); break;
-        case 'coil': d = coilD(curve, st.amp, st.wl); break;
+        case 'coil': d = coilD(curve, st.amp, st.wl, off); break;
         default: d = solidD(curve, off);
       }
       const join = st.pattern === 'zigzag' && st.heavy ? ';stroke-linejoin:miter;stroke-miterlimit:3' : '';
@@ -506,7 +516,9 @@ export function renderTerm(term, ctx) {
         const t = (o.arrowAt === 'end') === (sgn === 1) ? 1 : 0;
         endHead = t;
         const p = G.at(curve, t), d = G.tan(curve, t), tx = d[0] * sgn, ty = d[1] * sgn;
-        marks.push(arrowHead(p[0] - tx * 5, p[1] - ty * 5, tx, ty, col));
+        // inside the line: ending on its last point, or starting from its first
+        const c = o.arrowAt === 'end' ? -5 : 4;
+        marks.push(arrowHead(p[0] + tx * c, p[1] + ty * c, tx, ty, col));
       } else {
         const t = o.arrowPos != null ? +o.arrowPos : tMid;
         const p = G.at(curve, t), d = G.tan(curve, t), tx = d[0] * sgn, ty = d[1] * sgn;
@@ -672,7 +684,7 @@ export function renderTerm(term, ctx) {
   }
 
   // drafting grid (the `grid` statement): whole units under everything, with each vertex's name
-  let gridSVG = '';
+  let gridSVG = '', gridNames = '';
   if (ctx.grid && !bb.empty) {
     const gx0 = Math.floor(bb.x0 / u), gx1 = Math.ceil(bb.x1 / u);
     const gyTop = Math.ceil(-bb.y0 / u), gyBot = Math.floor(-bb.y1 / u);
@@ -685,12 +697,15 @@ export function renderTerm(term, ctx) {
     const tick = (x, y, t, anchor, col = muted) => `<text x="${f(x)}" y="${f(y)}" text-anchor="${anchor}" font-size="9.5" style="fill:${col};font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${t}</text>`;
     for (let i = gx0; i <= gx1; i++) g.push(tick(X(i), Y(gyBot) + 12, num(i), 'middle'));
     for (let j = gyBot; j <= gyTop; j++) g.push(tick(X(gx0) - 5, Y(j) + 3.5, j === 0 ? 'y=0' : num(j), 'end'));
+    // the vertices' names go over everything, so that a lens or a blob drawn on top does not hide them
+    const names = [];
     for (const n of N.values()) {
       if (n.anon) continue;
       const ox = n.shape.kind === 'rect' || n.shape.kind === 'lens' ? n.shape.w / 2 : (n.shape.r || 0) * 0.7, oy = n.shape.kind === 'rect' || n.shape.kind === 'lens' ? n.shape.h / 2 : (n.shape.r || 0) * 0.7;
-      g.push(tick(n.px + ox + 3, n.py - oy - 3, escapeXML(n.name), 'start', teal));
+      names.push(tick(n.px + ox + 3, n.py - oy - 3, escapeXML(n.name), 'start', teal));
     }
     gridSVG = `<g class="feyn-grid">${g.join('')}</g>`;
+    gridNames = `<g class="feyn-grid">${names.join('')}</g>`;
     bb.box(X(gx0) - 28, Y(gyTop) - 2, X(gx1) + 2, Y(gyBot) + 15);
   }
 
@@ -701,8 +716,10 @@ export function renderTerm(term, ctx) {
   const x0 = Math.floor(snap(bb.x0 - PAD)), y0 = Math.floor(snap(bb.y0 - PAD));
   const W = Math.ceil(snap(bb.x1 + PAD)) - x0, H = Math.ceil(snap(bb.y1 + PAD)) - y0;
   const inner = (defs.length ? `<defs>${defs.join('')}</defs>` : '') + gridSVG +
-    `<g fill="none" stroke-linecap="round" stroke-linejoin="round">${lines.join('')}</g>` + marks.join('') + nodes.join('') + labels.join('');
-  const description = term.title || (desc.length ? `${desc.join(', ')}` : 'empty diagram');
+    `<g fill="none" stroke-linecap="round" stroke-linejoin="round">${lines.join('')}</g>` + marks.join('') + nodes.join('') + labels.join('') + gridNames;
+  // the accessible description: the title (TeX read as text), else the lines, else the vertices
+  const vertices = [...term.nodes.values()].filter((n) => !n.anon).map((n) => `${n.shape || 'dot'}${n.opts?.label ? ' ' + labelText(n.opts.label) : ''}`);
+  const description = term.title ? plainTitle(term.title) : desc.length ? desc.join(', ') : vertices.length ? vertices.join(', ') : 'empty diagram';
   return { inner, x0, y0, W, H, axis: -y0, desc: description, caption: term.caption };
 }
 
@@ -733,7 +750,7 @@ export function equationHTML(results, ops, breaks = []) {
     if (r.ellipsis) body = '<span class="feyn-op" style="color:var(--feyn-muted,#5a6477)">⋯</span>';
     else {
       const below = r.H - r.axis;
-      // a captioned term is padded down to the deepest captioned term at most 24 px deeper than itself, so
+      // a captioned term is padded down to the deepest captioned term at most CAP_STEP (36 px) deeper than itself, so
       // captions of terms of similar depth share a line, and an unusually deep term does not strand the others'
       const near = groupDepth(below);
       const pad = r.caption ? near - below + CAP_H : 0;

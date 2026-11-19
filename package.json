@@ -1,25 +1,82 @@
 {
   "name": "fumadocs-feynman",
   "version": "0.1.0",
-  "private": true,
-  "description": "Feynman diagrams for fumadocs: ```feynman code blocks rendered to static, theme-aware SVG at build time",
-  "type": "module",
-  "sideEffects": ["*.css"],
-  "files": ["src", "react", "remark", "types", "style.css", "README.md"],
-  "exports": {
-    ".": { "types": "./types/index.d.ts", "default": "./src/index.js" },
-    "./react": { "types": "./types/react.d.ts", "default": "./react/index.js" },
-    "./remark": { "types": "./types/remark.d.ts", "default": "./remark/index.js" },
-    "./style.css": "./style.css"
+  "description": "Feynman diagrams for fumadocs: feynman code blocks rendered to static, theme-aware SVG at build time",
+  "keywords": [
+    "fumadocs",
+    "feynman",
+    "feynman-diagrams",
+    "diagrams",
+    "physics",
+    "many-body",
+    "mdx",
+    "remark",
+    "remark-plugin",
+    "svg",
+    "react",
+    "nextjs"
+  ],
+  "license": "MIT",
+  "homepage": "https://nevensky.github.io/fumadocs-feynman/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nevensky/fumadocs-feynman.git"
   },
+  "bugs": {
+    "url": "https://github.com/Nevensky/fumadocs-feynman/issues"
+  },
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "files": [
+    "src",
+    "react",
+    "remark",
+    "types",
+    "style.css",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./react": {
+      "types": "./types/react.d.ts",
+      "default": "./react/index.js"
+    },
+    "./remark": {
+      "types": "./types/remark.d.ts",
+      "default": "./remark/index.js"
+    },
+    "./style.css": "./style.css",
+    "./package.json": "./package.json"
+  },
+  "types": "./types/index.d.ts",
   "scripts": {
     "test": "node test/run.mjs",
     "build:css": "node scripts/build-css.mjs",
     "gallery": "node gallery/build.mjs",
     "shots": "node test/shots.mjs",
-    "demo:pack": "npm pack --pack-destination demo"
+    "docs:install": "npm --prefix docs install",
+    "docs:gen": "node docs/scripts/gen-pages.mjs",
+    "docs:dev": "npm --prefix docs run dev",
+    "docs:build": "npm --prefix docs run build",
+    "docs:check": "npm --prefix docs run check",
+    "prepublishOnly": "node test/run.mjs"
   },
-  "peerDependencies": { "react": ">=18" },
-  "peerDependenciesMeta": { "react": { "optional": true } },
-  "engines": { "node": ">=18" }
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }

@@ -1,0 +1,115 @@
+---
+title: Quick start
+description: Build a diagram one statement at a time, then draw it from a template and put it in an equation.
+---
+
+This page builds the Fan–Migdal self-energy a statement at a time, draws it again from a template, and then writes equations. Each step shows the whole block so far, with the diagram it draws and its source under it, so you can copy any step into a page. It assumes the plugin and the component are set up: see [Installation](/docs/installation).
+
+## Place two vertices and draw an electron
+
+```feynman source
+a at (0, 0); b at (2.8, 0)
+a -> b fermion "G^0" below
+```
+
+- `a at (0, 0)` places a vertex named `a`, a dot unless you give it a shape. Positions are in units of 40 px by default, x to the right and y up, and the main line of a diagram sits on y = 0. `a at 0,0` without the brackets works too.
+- `;` separates statements on one line.
+- `a -> b fermion` draws an electron line with its arrow pointing from `a` to `b`. `a <- b` turns the arrow round, and `--` draws no arrow.
+- `"G^0"` is the line's label. Labels take a subset of TeX: sub- and superscripts with `_` and `^` (in braces when longer than one character), Greek letters such as `\Sigma`, `\mathbf` and more, all listed in the [Language reference](/docs/reference/language#labels).
+- `below` puts the label below the line. `above` and `below` name a side of the page, whichever way the line is written. Without them, a label goes on the left of the direction the line is written in: above, for this line.
+
+## Add the external legs
+
+```feynman source
+a at (0, 0); b at (2.8, 0)
+leg a left; leg b right
+a -> b fermion "G^0" below
+```
+
+`leg a left` draws a short external line from `a` towards the left, 0.6 units long. A leg is an electron line unless you name another style, and it has no arrow: `leg a left in` adds one that points into `a`, and `out` one that points away. A number after the direction sets the length, as in `leg a left 1.2`.
+
+## Span it with a phonon
+
+```feynman source
+a at (0, 0); b at (2.8, 0)
+leg a left; leg b right
+a -> b fermion "G^0" below
+a -- b phonon bulge=1.2 above "F^0"
+```
+
+- `a -- b phonon` draws a phonon line, with `--` because a phonon carries no arrow. An arrow marks a fermion, so `a -> b phonon` is an error. The momentum a phonon carries goes in its label, or in a `mom=` arrow beside the line: see [Momentum](/docs/guides/momentum).
+- `bulge=1.2 above` bends the line into an arc that rises 1.2 units above the straight line between its ends. The bulge is in the same units as the positions, so the arc keeps its height when you move a vertex. It can be at most half the distance between the ends, here 1.4; `arc above` draws a half circle.
+- On an arc, `above` and `below` say which way it bulges, and the label goes on that side, outside the arc.
+
+## Draft on the grid
+
+```feynman source
+grid
+a at (0, 0); b at (2.8, 0)
+leg a left; leg b right
+a -> b fermion "G^0" below
+a -- b phonon bulge=1.2 above "F^0"
+```
+
+`grid`, alone on a line, draws the unit grid under the diagram, with y = 0 marked and the name of every vertex beside it. Use it while you place vertices and arcs, and delete the line when the diagram is done.
+
+## Draw it from a template
+
+The diagram you built is the Fan–Migdal self-energy, and the template `fan-migdal` draws it in one line:
+
+```feynman source
+fan-migdal
+```
+
+The **By hand** tab shows what the template stands for: the diagram you built, with the vertices `a` and `b` in the same places, written a little differently.
+
+- The legs are lines from a point, such as `(-0.575, 0) -- a fermion`, instead of `leg` statements.
+- The electron's label is placed with `side=right`: the right of the direction a → b, which is below.
+- The arc is given by `bend=0.42`, its height divided by the distance between its ends: 0.42 × 2.8 ≈ 1.18 units, on the left of a → b, which is above.
+
+Templates take options. `fan-migdal dressed` draws the dressed G and F, `vertex=disk` puts screened vertices at `a` and `b`, and `mom="\mathbf{q}"` adds the phonon's momentum beside it. The reference page [Templates](/docs/reference/templates#fan-migdal) lists every option. A template's vertices keep their names, so later statements in the block can label them or attach more lines: see [Using templates](/docs/guides/templates).
+
+## Write an equation
+
+The Dyson equation, G = G⁰ + G⁰ Σ G, written by hand:
+
+```feynman source
+(0, 0) -> (1.8, 0) fermion dressed "G"
+=
+(0, 0) -> (1.8, 0) fermion "G^0"
++
+S at (2.05, 0) blob "\Sigma"
+(0, 0) -> S fermion "G^0"
+S -> (4.1, 0) fermion dressed "G"
+```
+
+- A line that starts with an operator, such as `=` or `+`, begins the next term. Each term is a diagram with its own coordinates, and the operators are set at the height of y = 0.
+- `(0, 0)` is a point with no name, for the free end of a line.
+- `dressed` turns the electron line into the double line of the full G.
+- `blob` is the shape of a self-energy, and lines stop at its edge by themselves.
+
+The template `dyson` draws this equation in one line, and `dyson style=photon full=D bare="D^0" self="\Pi"` draws the photon's: see [Dyson equations](/docs/examples/dyson-equations).
+
+## Add captions
+
+```feynman source caption="The electron–phonon self-energy to lowest order"
+sigma label="\Sigma^{ep}"
+= fan-migdal
+caption "Fan–Migdal"
++ debye-waller
+caption "Debye–Waller"
+```
+
+- `caption "Fan–Migdal"` puts a caption under the term it is written in. Here each operator is followed by a template on the same line, which starts the term.
+- `caption="…"` in the fence puts a caption under the whole figure. On a diagram of one term, it takes the place of a `caption` statement.
+
+## Next steps
+
+<Cards>
+  <Card title="Writing diagrams" href="/docs/guides/writing-diagrams">The language: vertices, lines, legs, labels, arcs and equations.</Card>
+  <Card title="Using templates" href="/docs/guides/templates">Standard diagrams in one line, and how to add to them.</Card>
+  <Card title="Notation" href="/docs/guides/notation">The many-body notation: which line and vertex stand for what.</Card>
+  <Card title="Self-energies" href="/docs/guides/self-energies">Fock, GW, Fan–Migdal and more, lying down and standing up.</Card>
+  <Card title="Momentum" href="/docs/guides/momentum">Show the momentum an interaction carries with a mom= arrow.</Card>
+  <Card title="Source tabs" href="/docs/guides/source-tabs">The Template and By hand tabs under a diagram.</Card>
+</Cards>
